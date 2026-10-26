@@ -1,0 +1,21 @@
+# 中文注释：共享忽略规则保护个人凭据、任务输入和媒体，不能只依赖开发者本机排除。
+.reelpeat/
+.reelpeat-local/
+credentials.json
+setup-*.json
+state.json
+manifest.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+logs/
+output/
+test-artifacts/
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store

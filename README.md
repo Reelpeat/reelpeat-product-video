@@ -1,0 +1,96 @@
+# Reelpeat 商品链接带货视频 Skill
+
+给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
+
+当前 Skill 版本：**1.1.1**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+
+## 安装与运行条件
+
+- Node.js 22或更新版本，本次合同验证目标为22/24。
+- 宿主能加载 Skill、执行固定 Node 脚本、联网并读写本次授权工作区。
+- 宿主需要实际图像查看能力；无法看图或播放视频时必须说明核验限制。
+- 运行客户端无需 npm install、Python、MCP SDK或常驻本机连接器。
+
+Codex项目使用时，将本目录中的完整 `.codex/skills/reelpeat-product-video/` 放入目标项目相同位置。不要只复制SKILL.md；scripts、references、agents须一起保留。其他宿主按其当前版本的Skill安装入口导入完整目录，不能由Node可执行推定宿主已兼容。
+
+可先获取源码：
+
+```bash
+git clone https://github.com/navyran/reelpeat-product-video.git
+cd reelpeat-product-video
+```
+
+WorkBuddy使用下文打包命令生成的专用ZIP，其顶层多语言元信息由同一维护源转换。ZIP附件以实际Release为准，源码上传不代表已创建Release。
+
+```bash
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs --help
+```
+
+## 当前网关与Key配置
+
+当前仍使用既有开发网关：
+
+`https://3d-agent-skill.inner.xshadow-ai.com/`
+
+该域名属于内网开发环境，需要具备对应网络访问条件；不是面向所有互联网用户的正式生产入口。发布源码不修改服务器网关、不改客户端默认行为、不读取或复制维护者已有Key。客户端仍没有内置默认API地址，首次配置显式传入已核验的网关：
+
+```bash
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://3d-agent-skill.inner.xshadow-ai.com/"
+```
+
+命令及时返回短时本机配置页地址。用户在该页面输入自己的个人Key，核对账号和保存位置后确认；不要在聊天、命令参数、URL或Issue里发送Key。Key从用户已核验的Reelpeat账户入口创建，首次接入时，使用客户端 `doctor` 或 `--help` 返回的 `account_url` 打开注册／登录与个人Key管理；完整保留公开来源参数。已有账号无需重复注册，充值仍沿用已核验的个人账户入口。
+
+默认保存在用户目录 `.reelpeat/credentials.json`，网关、Key和账号绑定在一起。文件每次命令重新读取，更换Key无需重启Agent。macOS/Linux目录0700、文件0600；普通文件是明文，不能防同一用户的其他进程读取。显式项目模式及宿主secret用法见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。云端localhost不等于用户电脑，没有可达配置页时使用宿主允许的安全凭据方式。
+
+```bash
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs doctor
+```
+
+doctor仅检查身份、能力及有权限时的余额，不解析商品、不准备或生成。不要读取凭据文件内容发给Agent。
+
+## 使用示例与费用
+
+在已加载此Skill的宿主中提出：
+
+> 使用 reelpeat-product-video，将这个商品链接制作成马来西亚市场的带货视频。先解析商品、实际查看选定颜色原图并给出创意与正式报价，先不要提交付费生成。
+
+宿主依次执行resolve、download并实际看图、prepare，停在quote_ready；用户明确授权后才调用generate-video。所有业务参数通过UTF-8 JSON文件或stdin传入，详细阶段、参数和授权格式见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。价格、余额及规格来自本次正式API响应，示例不保证平台、模型或价格恒定可用。
+
+- `accepted`只代表受理或当前命令完成职责，不等于成片。
+- 退出码2表示等待窗口耗尽，用原恢复文件resume；不能新建任务碰运气。
+- 退出码3表示原任务成功但媒体交付不完整，只重试download。
+- 原任务、授权及素材绑定账号和API地址，换账号或网关不能直接沿用旧记录。
+- 保存的原图、提示词和恢复记录属于用户资料，默认位于工作区 `.reelpeat-local/`，不应提交Git。
+
+## 本地自动测试
+
+仅维护者运行打包和测试时需要Python 3.11+、Git及PyYAML；终端中的node应为拟验证版本。全部测试使用临时目录和合成回环HTTP服务，不需要个人Key，不调用真实网关或供应商，不产生真实费用。
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+node --test tests/client/client-setup.test.js tests/client/client-workflow.test.js
+python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+```
+
+GitHub工作流：[check.yml](.github/workflows/check.yml)。push、pull_request和手动触发时，Ubuntu分别使用Node22/24运行同一测试和打包命令；Actions固定提交SHA、只读仓库权限，不注入真实Key，也不自动创建Release或推送代码。托管执行结果以仓库Actions页面为准，本地测试通过不能代替托管执行状态。
+
+## 本地打包
+
+```bash
+python3 scripts/package_reelpeat_skill.py --target codex --output output/reelpeat-product-video-codex.zip
+python3 scripts/package_reelpeat_skill.py --target workbuddy --output output/reelpeat-product-video-workbuddy.zip
+```
+
+两个ZIP均只有一层reelpeat-product-video根目录，包含八个.mjs模块及引用文档，不含测试、凭据或运行数据。Codex包含agents/openai.yaml；WorkBuddy包转换顶层元信息。不修改源目录，也不读取或打包用户目录。
+
+## 已知边界及发布前检查
+
+- 当前公开图片目录合同未就绪时，不发起新生图；可使用已开放的原图视频路径或查询本人历史图片，实际能力仍以context为准。
+- Codex当前项目路径已有测试依据；WorkBuddy包结构验证不能替代WorkBuddy实机安装。Windows ACL和其他Agent/云端的权限、配置页及媒体验收不能宣称已通过。
+- 当前未选定开源许可证，不包含LICENSE；代码公开不代表已授予开源使用许可，后续由版权方决定。
+- 本仓库只发布Skill源码及必要配套文件，不包含真实商品下载、生成结果、用户任务记录或有效API Key。
+- 分享截图、日志和Issue时删除Key、鉴权头、临时签名URL、个人账号资料及完整恢复文件。
+
+## 维护与同步
+
+唯一维护源仍为主项目 `.codex/skills/reelpeat-product-video/`。本目录由主项目 `scripts/prepare_reelpeat_github.py` 显式白名单导出；不要同时手工维护两份Skill。后续GitHub修改应回流唯一维护源，再重新导出到新的空目录。导出不携带Git历史，也不覆盖已有目录中的许可证、提交或用户文件。

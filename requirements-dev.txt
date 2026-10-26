@@ -1,0 +1,2 @@
+# 中文注释：仅打包和测试读取YAML需要；用户运行Node客户端无需Python或npm依赖。
+PyYAML==6.0.3
