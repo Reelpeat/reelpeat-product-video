@@ -1,4 +1,4 @@
 interface:
   display_name: "商品链接生成带货视频"
   short_description: "从商品链接设计带货脚本，按需补图并生成短视频，费用透明，支持任务续接。"
-  default_prompt: "使用 $reelpeat-product-video，把这个商品链接制作成带货短视频，先说明创意与正式 R 币报价。"
+  default_prompt: "使用 $reelpeat-product-video，把这个商品链接制作成带货短视频，默认一次展示分镜与口播、所选参考图预览及规格与正式报价，确认后再提交；以我的明确要求为准。"
