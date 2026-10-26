@@ -9,6 +9,7 @@ import { accountEntry, launchSetup, setupStatus, startSetupServer } from './setu
 import { session, envelope, exitCode, startOperation, resumeOperation, generate, readOperation,
   adoptTask, boundedOutput } from './workflow.mjs';
 import { downloadOperation } from './media.mjs';
+import { initializeBatch, batchStatus } from './batch.mjs';
 
 const help = {
   description: 'Reelpeat 官方Node客户端；不需要MCP或npm安装。业务操作无交互，Key只在本机配置页输入。',
@@ -16,9 +17,11 @@ const help = {
   account_url: accountEntry(),
   usage: 'node <skill-root>/scripts/reelpeat.mjs <operation> [options]',
   operations: ['doctor', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'prepare',
-    'generate-image', 'generate-video', 'task', 'creation', 'resume', 'download'],
+    'generate-image', 'generate-video', 'task', 'creation', 'resume', 'download', 'batch-init', 'batch-status'],
   input: ['--params-file <UTF-8 JSON文件> 或 --params-file - 从stdin读取',
-    '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>'],
+    '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>',
+    '批次：batch-init --params-file <已明确确认的批次JSON>；batch-status --batch-file <batch.json>',
+    '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],
   credentials: ['默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
     '--config <明确凭据文件>；--auth-source env --api-base <已核验API> 显式宿主secret模式',
     'auth setup需要--api-base；不接受--key，不输出凭据，不修改Agent全局配置'],
@@ -32,7 +35,7 @@ function optionsFrom(argv) {
   try {
     const options = Object.fromEntries(['params-file', 'run-file', 'authorization-file', 'task-id',
       'creation-id', 'work-dir', 'output-dir', 'wait-seconds', 'auth-source', 'scope',
-      'config', 'api-base', 'setup-file'].map(key => [key, { type: 'string' }]));
+      'config', 'api-base', 'setup-file', 'batch-file', 'batch-row'].map(key => [key, { type: 'string' }]));
     const parsed = parseArgs({ args: argv, allowPositionals: true, strict: true,
       options: { ...options, help: { type: 'boolean' } } });
     if (parsed.values['wait-seconds'] != null) {
@@ -115,7 +118,13 @@ export async function main(argv = process.argv.slice(2)) {
   if (!help.operations.includes(operation)) fail('UNKNOWN_OPERATION', '未知操作，请执行--help。');
   const active = await session(options);
   let result;
-  if (['context', 'balance', 'task', 'creation'].includes(operation)) {
+  if (operation === 'batch-init') result = envelope(operation,
+    { data: await initializeBatch(await inputJSON(options), options, active) });
+  else if (operation === 'batch-status') {
+    if (!options['batch-file']) fail('BATCH_FILE_REQUIRED', '请指定原batch.json。');
+    result = envelope(operation, { data: await batchStatus(path.resolve(options['work-dir'] || process.cwd(), options['batch-file']), active) });
+  }
+  else if (['context', 'balance', 'task', 'creation'].includes(operation)) {
     const input = operation === 'task' ? { task_id: options['task-id'] }
       : operation === 'creation' ? { creation_id: options['creation-id'] } : {};
     result = await readOperation(operation, input, active);

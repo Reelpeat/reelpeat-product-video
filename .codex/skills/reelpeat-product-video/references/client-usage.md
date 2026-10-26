@@ -1,6 +1,6 @@
 # 官方 Node.js 客户端执行合同
 
-本文件与 Skill v1.1.2 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
+本文件与 Skill v1.2.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
 
 ## 1. 先定位，再执行
 
@@ -47,7 +47,9 @@ CI/受控环境仅在显式 --auth-source env 且 --api-base 已明确时读取�
 | context、balance | 读取当前身份/能力、余额；凭据来源选项同上 |
 | resolve | --params-file：product_url、target_market；检查正式平台与免费政策，创建一次并有限等待 |
 | prepare | --params-file：creation_id、kind、prompt、asset_refs、params、visual_review，可附creative_summary；准备并报价，不自动生成 |
-| generate-video、generate-image | --run-file 原准备state.json，另需 --authorization-file 本次授权JSON；重新核查准备、金额、权限和余额，只提交一次 |
+| generate-video、generate-image | --run-file 原准备state.json，单条另需 --authorization-file 本次授权JSON；批次用 --batch-file 与 --batch-row；重新核查准备、金额、权限和余额，只提交一次 |
+| batch-init | --params-file：已明确确认的固定批次清单；创建本地batch.json，不提交生成 |
+| batch-status | --batch-file：核对原批次任务与账务，返回各行状态和预算占用 |
 | task | --task-id：只读查询原任务，不新建模型任务 |
 | creation | --creation-id：只读查询创作与唯一账务汇总 |
 | resume | --run-file 原记录，或 --task-id 已知任务，两者不能同时给出；恢复原身份，不自动改输入 |
@@ -106,7 +108,7 @@ stdout始终为一个JSON对象，stderr用于脱敏诊断；没有通用的“S
       "creative_summary": "<给用户看的简短方案>"
     }
 
-规格示例不能代替本次正式能力。quote_ready返回quote、billing和recovery_file后，宿主默认在同一轮回复一次展示分镜与口播、所选参考图预览、实际规格与正式报价，以及已消费和有权限时刷新后的余额。分镜/口播从本次最终准备输入整理，图片使用download返回的真实媒体按asset_refs同序预览；新会话缺上下文时先读取原state.json中的requests.prepare、visual_review和相关素材清单核对，不猜测或改写输入。用户有明确的展示/静音等要求时以用户要求为准。没有匹配的明确授权则等待确认；已有覆盖本次输入、数量与金额的明确授权时告知沿用，不重复询问。客户端不创建额外确认UI，也不以内部ID或JSON代替图片展示。
+规格示例不能代替本次正式能力。quote_ready返回quote、billing和recovery_file后，单条任务的宿主默认在同一轮回复一次展示分镜与口播、所选参考图预览、实际规格与正式报价，以及已消费和有权限时刷新后的余额。分镜/口播从本次最终准备输入整理，图片使用download返回的真实媒体按asset_refs同序预览；新会话缺上下文时先读取原state.json中的requests.prepare、visual_review和相关素材清单核对，不猜测或改写输入。用户有明确的展示/静音等要求时以用户要求为准。没有匹配的明确授权则等待确认；已有覆盖本次输入、数量与金额的明确授权时告知沿用，不重复询问。客户端不创建额外确认UI，也不以内部ID或JSON代替图片展示。表格批次按下文批次命令一次确认，不逐行重复要求确认。
 
 取得用户针对本次账号、输入、数量和上限的明确授权后，宿主创建UTF-8授权JSON：
 
@@ -128,6 +130,51 @@ max_credits=0仅是占位，不代表免费或可以省略授权。填入用户�
 
 状态未知时使用resume；不能换MCP入口、换幂等键或复制作新运行来重做。报价过期时先核查原受理事实，再按主Skill规则重新准备/询价；客户端不静默刷新报价或扩大授权。
 
+## 批次命令
+
+先读[批次确认与授权建议](recovery-and-batch.md)。宿主负责已授权的表格读取、源行变化核验、实际看图、创意语义和展示；客户端负责固定行/输入或规格/原图范围、串行购买、幂等、单行及整批金额检查。它不自动读取表格或运行常驻循环。主SKILL的一次确认要求可由整批完整清单满足，或由明确的规则授权替代逐行创意确认。
+
+宿主先拟好用户可读建议，用户明确确认后才创建以下UTF-8 JSON并执行batch-init。不要要求用户填写文件；source保存本次建议版本、用户明确回复及其可追溯依据，不是模型替用户写“已批准”。规则/来源/时刻及上限都须来自实际确认。
+
+    {
+      "mode": "prepared",
+      "table_source": "<表/工作表/筛选范围的非秘密说明>",
+      "rows": [{
+        "row_id": "<稳定行ID或每视频子项ID>",
+        "resolve_file": "<本行已完成解析的state.json绝对路径>",
+        "variant": "<已确定变体>",
+        "prepare_file": "<本行正式准备的state.json绝对路径>",
+        "max_credits": 0
+      }],
+      "max_credits": 0,
+      "on_failure": "stop",
+      "duplicate_policy": "reject",
+      "source": "<本次确认建议版本与用户明确回复的对话依据>",
+      "authorized_at": "<实际带时区RFC3339时刻>"
+    }
+
+0只是整数占位；填用户明确确认的单行与整批上限。每子项制作一条，独立creation与row_id；默认禁止重复商品链接，用户确认有意重复制作才用duplicate_policy=keep。on_failure=stop表示明确失败后停止；skip表示该行费用终结后记录失败并继续其他行，不授权重做。资料不全的跳过规则和回写列写在用户可读建议与来源依据中，由宿主执行。
+
+- **prepared（默认）：**所有列入的行均已有正式视频报价与实际看图记录。客户端保存已批准的完整kind/prompt/有序asset_refs/params；同输入重新准备可以换Quote，改输入不能沿用。正式总报价由宿主从各行实际Quote合计展示，与预算上限分别说明。
+- **rules（明确选择）：**先免费解析确定本批商品和变体。rows去掉prepare_file，增加rules对象，其params为本合同第4节六项完整视频规格，creative_scope为已确认的市场/语言及脚本、选图自主范围。客户端限制所选引用来自本行解析的image_refs，规格与rules.params完全一致；宿主仍须实际看图核验变体及创意语义。不得把规则模式当任意prompt或金额的永久许可。只有预算上限，没有整批正式报价。
+
+    node "<Skill根目录>/scripts/reelpeat.mjs" batch-init --params-file "<用户确认后创建的批次JSON>" --work-dir "<工作区>"
+
+返回data.batch_file、batch_id、scope_hash、row_count及max_credits。原批次保存到工作区.reelpeat-local/batches/<batch_id>/batch.json（私有目录/文件）；包含确认快照、来源和行→原准备运行映射，不能发布或发到公开表格。单次JSON读取上限2MiB，超出时明确拆成用户可核对的多个批次，不能无提示截断。该命令只写本地记录，不购买、不把预算预占到服务端。客户端不能验证人类是否真的同意，也不能用本地hash抵御同一用户主动篡改所有文件。
+
+每行准备就绪且宿主核对创意范围后：
+
+    node "<Skill根目录>/scripts/reelpeat.mjs" generate-video --run-file "<本行原准备state.json>" --batch-file "<原batch.json>" --batch-row "<稳定行ID>"
+    node "<Skill根目录>/scripts/reelpeat.mjs" batch-status --batch-file "<原batch.json>"
+
+批次与单条authorization-file互斥。客户端会从已确认批次派生绑定本次preparation/Quote/指纹、数量1的单次授权，重新核查正式金额、Key上限和余额。新购买前持久化行→run_file及本次报价占用；本行只能续接该原运行，不能换新prepare付费重做。报价过期而从未尝试购买的行，可在排除原受理后以同输入重新prepare，在行/批上限内继续。因余额不足已留下占用的行，充值后仍用原运行重试，不清零占用。
+
+batch-status按每个creation唯一账务返回used_or_reserved_credits和remaining_credits：已终结用真实consumed_credits，未终结保留原报价。没有将task再加到creation上重复计数。为避免未知结算风险，批次串行等待当前任务和账务均终结，再执行后续收费；等待本身不自动触发新购买。接口失败或金额未知时停止，不能以本地旧状态推测可继续。
+
+同一batch.json的消费使用排他锁；异常退出可能保留batch.json.lock。先核查锁内PID、原进程与原任务状态，确认没有并发执行者后再处理锁，保留batch.json及全部state.json；不自动过期抢锁。跨机器、不同批次或用户手工复制/修改文件不能获得统一账户级预算保证。换账号/API拒绝沿用；任务已受理后使用原state.json resume/download，不能重建批次绕过。
+
+兼容验收需确认：宿主可持久保存batch.json与行state.json、重启后按稳定行标识续接、一次确认派生多笔单次授权、超预算与未知任务阻断、真实图片展示、表格只读/回写权限分开，以及无调度时如实说明停止。Node22/24隔离测试只覆盖客户端行为，不替代飞书/企微/钉钉连接器及各Agent实机验收。MCP兼容模式仍按宿主保存原记录编排，不声称具备本Node批次文件的自动预算门禁；未知受理不切换入口。
+
 ## 5. 媒体交付与费用
 
 完成后download返回实际本地绝对路径、manifest_file、任务及创作账务，有余额权限时另查余额。脚本不会重算价格；缺金额是未知，final=false仍待结算。单个媒体上限256MiB，拒绝空文件、类型/文件头不符、重定向和不完整下载；超限时说明限制，不自动降低生成规格。
@@ -138,7 +185,7 @@ max_credits=0仅是占位，不代表免费或可以省略授权。填入用户�
 
 ## 6. 安装包与宿主验收边界
 
-发布包由同一份技能源生成，均只有一层 reelpeat-product-video 根目录。Codex 包包含 agents/openai.yaml；WorkBuddy 包转换顶层多语言元信息。两包都携带全部八个 .mjs 模块和引用文档，不包含凭据、任务数据、媒体、Python 或 MCP 服务。更新只替换技能资源，不覆盖位于技能目录之外的凭据与恢复文件。安装和卸载遵守当前宿主实际入口，不替用户改全局配置。
+发布包由同一份技能源生成，均只有一层 reelpeat-product-video 根目录。Codex 包包含 agents/openai.yaml；WorkBuddy 包转换顶层多语言元信息。两包都携带全部九个 .mjs 模块和引用文档，不包含凭据、任务数据、媒体、Python 或 MCP 服务。更新只替换技能资源，不覆盖位于技能目录之外的凭据与恢复文件。安装和卸载遵守当前宿主实际入口，不替用户改全局配置。
 
 | 宿主 | 安装与调用要求 | 本轮验收状态 |
 | --- | --- | --- |

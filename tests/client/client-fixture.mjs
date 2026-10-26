@@ -36,8 +36,9 @@ export async function fixture(t, options = {}) {
         ratios: ['9:16'], generate_audio: [true, false], camera_fixed: [true, false],
         billing: { preparation_credits: 0, quote_required: true, currency: 'rcoin' } },
     } });
-  const taskResult = (kind, id) => ({
-    task_id: id, creation_id: 'creation-fixture', kind, status: options.running ? 'running' : 'completed',
+  // 中文注释：批量隔离场景每行独立creation；原单条夹具保持原身份。
+  const taskResult = (kind, id, creationId = 'creation-fixture') => ({
+    task_id: id, creation_id: creationId, kind, status: options.running ? 'running' : 'completed',
     poll_after_seconds: options.pollSeconds ?? 0, billing: kind === 'video' ? billing(true) : billing(),
     result: kind === 'preparation' ? { preparation_id: id, kind: 'video', quote_id: 'quote-fixture',
       input_fingerprint: 'f'.repeat(64), quote_expires_at: new Date(Date.now() + (options.expired ? -1000 : 3600000)).toISOString() }
@@ -73,7 +74,9 @@ export async function fixture(t, options = {}) {
         const kind = record.path.endsWith('/resolve') ? 'product_parse'
           : record.path.endsWith('/preparations') ? 'preparation' : 'video';
         const id = kind + '-' + (tasks.size + 1);
-        const task = taskResult(kind, id);
+        const creationId = options.multi ? (kind === 'product_parse' ? 'creation-' + id
+          : record.path.split('/')[5]) : 'creation-fixture';
+        const task = taskResult(kind, id, creationId);
         tasks.set(id, task); accepted.set(record.key, id);
         if (kind === 'video') dispatches++;
       }
@@ -83,7 +86,7 @@ export async function fixture(t, options = {}) {
       }
       response.statusCode = 202;
       send({ ...(task.kind === 'preparation' ? { preparation_id: id } : { task_id: id }),
-        creation_id: 'creation-fixture', status: options.completedHandle ? 'completed' : 'queued',
+        creation_id: task.creation_id, status: options.completedHandle ? 'completed' : 'queued',
         poll_after_seconds: options.pollSeconds ?? 0 });
       return;
     }
@@ -92,8 +95,11 @@ export async function fixture(t, options = {}) {
       if (options.queryDelay) await new Promise(resolve => setTimeout(resolve, options.queryDelay));
       send(task); return;
     }
-    send({ creation_id: 'creation-fixture', status: 'completed', tasks: [...tasks.values()],
-      billing: dispatches ? billing(true) : { ...billing(), quoted_credits: null, consumed_credits: 0 } });
+    const creationId = options.multi ? record.path.split('/').at(-1) : 'creation-fixture';
+    const ownTasks = [...tasks.values()].filter(task => task.creation_id === creationId);
+    send({ creation_id: creationId, status: 'completed', tasks: ownTasks,
+      billing: ownTasks.some(task => task.kind === 'video') ? billing(true)
+        : { ...billing(), quoted_credits: null, consumed_credits: 0 } });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const config = path.join(root, 'private', 'credentials.json');

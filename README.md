@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.1.2**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.2.0**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -62,13 +62,21 @@ doctor仅检查身份、能力及有权限时的余额，不解析商品、不�
 - 原任务、授权及素材绑定账号和API地址，换账号或网关不能直接沿用旧记录。
 - 保存的原图、提示词和恢复记录属于用户资料，默认位于工作区 `.reelpeat-local/`，不应提交Git。
 
+## 表格批次制作
+
+支持由宿主已授权工具读取飞书、企微、钉钉等商品表；无工具时用导出CSV/XLSX。默认逐行解析、实际看图、准备分镜与正式报价，再展示完整批次清单，一次确认后在范围内串行生成。大批量可明确选择按固定商品、创意范围、规格、单行与整批上限授权后自主创作；其预算上限不是正式总报价。
+
+助手会根据本次信息拟好可修改的授权建议，用户可以直接回复“按此批次执行”，无需自己写JSON或授权书；建议未确认前不消费。明确要求优先，已有匹配授权不重复询问。新增行、改商品/变体和超预算不会自动纳入；失败不自动付费重做。回写仅在明确要求及有权限时更新指定列。
+
+客户端增加batch-init、batch-status，生成绑定原batch.json及稳定行ID；保留逐条Quote/指纹校验、原购买身份和费用记录。超预算、原任务未知或未结算时暂停后续收费，原任务resume/download不重做。详见[批次流程](.codex/skills/reelpeat-product-video/references/recovery-and-batch.md)与[命令合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。客户端不读取表格、不安装平台SDK，也不提供会话结束后的自动调度。批次本地预算控制不能替代跨机器的服务端账户级预占。
+
 ## 本地自动测试
 
 仅维护者运行打包和测试时需要Python 3.11+、Git及PyYAML；终端中的node应为拟验证版本。全部测试使用临时目录和合成回环HTTP服务，不需要个人Key，不调用真实网关或供应商，不产生真实费用。
 
 ```bash
 python3 -m pip install -r requirements-dev.txt
-node --test tests/client/client-setup.test.js tests/client/client-workflow.test.js
+node --test tests/client/*.test.js
 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
 ```
 
@@ -81,7 +89,7 @@ python3 scripts/package_reelpeat_skill.py --target codex --output output/reelpea
 python3 scripts/package_reelpeat_skill.py --target workbuddy --output output/reelpeat-product-video-workbuddy.zip
 ```
 
-两个ZIP均只有一层reelpeat-product-video根目录，包含八个.mjs模块及引用文档，不含测试、凭据或运行数据。Codex包含agents/openai.yaml；WorkBuddy包转换顶层元信息。不修改源目录，也不读取或打包用户目录。
+两个ZIP均只有一层reelpeat-product-video根目录，包含九个.mjs模块及引用文档，不含测试、凭据或运行数据。Codex包含agents/openai.yaml；WorkBuddy包转换顶层元信息。不修改源目录，也不读取或打包用户目录。
 
 ## 已知边界及发布前检查
 

@@ -12,7 +12,7 @@ SOURCE = Path(__file__).resolve().parents[1] / ".codex/skills/reelpeat-product-v
 # 中文注释：仅收录官方客户端模块，凭据、状态和临时文件即使混入scripts也不能发布。
 CLIENT_SCRIPTS = (
     "api-client.mjs", "local-files.mjs", "credentials.mjs", "contracts.mjs",
-    "workflow.mjs", "media.mjs", "setup.mjs", "reelpeat.mjs",
+    "workflow.mjs", "media.mjs", "setup.mjs", "reelpeat.mjs", "batch.mjs",
 )
 
 

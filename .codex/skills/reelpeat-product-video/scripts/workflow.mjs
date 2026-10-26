@@ -5,6 +5,7 @@ import { createAdapter } from './api-client.mjs';
 import { atomicJSON, readJSON, regularPath, privateDirectory, redact, noCredentials, fail, ClientError } from './local-files.mjs';
 import { loadCredentials, verifyIdentity } from './credentials.mjs';
 import { validateResolve, validatePrepare, validateAuthorization, resource, fields } from './contracts.mjs';
+import { reserveBatch, withBatchLock } from './batch.mjs';
 
 const names = { resolve: 'reelpeat_resolve_product', prepare: 'reelpeat_prepare_generation',
   'generate-image': 'reelpeat_generate_image', 'generate-video': 'reelpeat_generate_video',
@@ -224,21 +225,37 @@ export async function boundedOutput(result, options = {}) {
 
 export async function generate(operation, file, authorizationFile, options, active) {
   const state = await loadRun(file, active);
+  // 中文注释：恢复时沿用原批次绑定，不能省略命令选项后绕过本批预算。
+  const batchFile = options['batch-file'] ? path.resolve(options['work-dir'] || process.cwd(), options['batch-file'])
+    : state.batch_binding?.batch_file;
+  const rowId = options['batch-row'] || state.batch_binding?.row_id;
+  if (batchFile || rowId) {
+    if (!batchFile || !rowId || authorizationFile || operation !== 'generate-video' ||
+        (state.batch_binding && (batchFile !== state.batch_binding.batch_file || rowId !== state.batch_binding.row_id)))
+      fail('INVALID_BATCH_BINDING', '批次视频须同时绑定批次文件与行，不能混用单次授权或改变原绑定。');
+    return withBatchLock(batchFile, () => generatePrepared(operation, file, null, options, active, state, { batch_file: batchFile, row_id: rowId }));
+  }
+  return generatePrepared(operation, file, authorizationFile, options, active, state);
+}
+
+async function generatePrepared(operation, file, authorizationFile, options, active, state, batch = null) {
   if (state.requests['generate-image'] || state.requests['generate-video'])
     return resumeOperation(file, options, active);
   if (state.operation !== 'prepare' || !state.preparation_id ||
       state.requests.prepare?.kind !== (operation === 'generate-image' ? 'image' : 'video'))
     fail('PREPARATION_REQUIRED', '需要本客户端保存的匹配准备记录。');
-  if (!authorizationFile) fail('AUTHORIZATION_REQUIRED', '请先展示正式报价，取得用户明确授权并提供授权记录。');
+  if (!authorizationFile && !batch) fail('AUTHORIZATION_REQUIRED', '请先展示正式报价，取得用户明确授权并提供授权记录。');
   const { idempotency_key: _originalKey, ...preparedInput } = state.requests.prepare;
   validatePrepare({ ...preparedInput, visual_review: state.visual_review }, active.context);
-  const authorization = await readJSON(authorizationFile);
   const prep = await active.query('task', { task_id: state.preparation_id });
+  const authorization = batch ? await reserveBatch(batch.batch_file, batch.row_id, file, state, prep, active)
+    : await readJSON(authorizationFile);
   const price = validateAuthorization(authorization, state, active.context, prep, active.now());
   const balance = await active.query('balance');
   if (balance.available_credits < price) fail('INSUFFICIENT_BALANCE', '当前余额不足，停止新消费并保留原准备。');
   // 中文注释：消费授权是非秘密证据，不能与HTTP Authorization凭据字段混用。
   state.consumption_authorization = authorization;
+  if (batch) state.batch_binding = batch;
   state.task_id = null; state.task_status = null; state.billing = null;
   return submit(state, file, operation, { creation_id: state.creation_id,
     preparation_id: state.preparation_id, quote_id: state.quote.quote_id,
