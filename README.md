@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.2.0**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.0**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -38,12 +38,22 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs --help
 node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://3d-agent-skill.inner.xshadow-ai.com/"
 ```
 
-命令及时返回短时本机配置页地址。用户在该页面输入自己的个人Key，核对账号和保存位置后确认；不要在聊天、命令参数、URL或Issue里发送Key。Key从用户已核验的Reelpeat账户入口创建，首次接入时，使用客户端 `doctor` 或 `--help` 返回的 `account_url` 打开注册／登录与个人Key管理；完整保留公开来源参数。已有账号无需重复注册，充值仍沿用已核验的个人账户入口。
+配置引导默认同时提供三种选择：**Agent代配、临时网页、终端隐藏输入**。允许用户将个人Key直接发给Agent代配；聊天或工具记录可能保留输入，用户也可以选择自行填写，不必把Key发给Agent。Agent不复述Key、不把它放进命令参数、URL或报告，只通过官方客户端的受控stdin/隐藏终端传入，不修改其他Agent全局配置。
 
-默认保存在用户目录 `.reelpeat/credentials.json`，网关、Key和账号绑定在一起。文件每次命令重新读取，更换Key无需重启Agent。macOS/Linux目录0700、文件0600；普通文件是明文，不能防同一用户的其他进程读取。显式项目模式及宿主secret用法见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。云端localhost不等于用户电脑，没有可达配置页时使用宿主允许的安全凭据方式。
+自行在终端配置时运行下面不含Key的命令，按提示粘贴后回车，输入不回显；Ctrl+C取消，不更改原配置：
 
 ```bash
-node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs doctor
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-base "https://3d-agent-skill.inner.xshadow-ai.com/"
+```
+
+Agent或受控进程可用auth set --stdin，通过工具的标准输入传入原始Key后结束输入；不要改成--key或echo明文Key的shell命令。临时网页仍用上方auth setup启动，用户按“验证账号→确认保存”完成，不是只点验证。Key从已核验的Reelpeat账户入口创建，使用doctor或--help返回的完整account_url引导注册/登录；已有账号不用重复注册，充值仍走已核验账户入口。
+
+保存结果返回config_file和绑定该路径的doctor下一步，网页可用auth status --setup-file查询；随后显式doctor --config核验相同绝对路径与执行环境。不会把鉴权/权限错误统一当作缺配置，不要求重复创建Key。
+
+默认保存在用户目录 `.reelpeat/credentials.json`，网关、Key和账号绑定在一起。文件每次命令重新读取，更换Key无需重启Agent。macOS/Linux目录0700、文件0600；普通文件是明文，不能防同一用户的其他进程读取。显式项目模式及宿主secret用法见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。云端localhost不等于用户电脑，没有可达配置页时使用Agent代配、受控secret或用户终端方式，并核实实际保存环境与权限。
+
+```bash
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs doctor --config "<保存结果返回的config_file绝对路径>"
 ```
 
 doctor仅检查身份、能力及有权限时的余额，不解析商品、不准备或生成。不要读取凭据文件内容发给Agent。
@@ -89,7 +99,7 @@ python3 scripts/package_reelpeat_skill.py --target codex --output output/reelpea
 python3 scripts/package_reelpeat_skill.py --target workbuddy --output output/reelpeat-product-video-workbuddy.zip
 ```
 
-两个ZIP均只有一层reelpeat-product-video根目录，包含九个.mjs模块及引用文档，不含测试、凭据或运行数据。Codex包含agents/openai.yaml；WorkBuddy包转换顶层元信息。不修改源目录，也不读取或打包用户目录。
+两个ZIP均只有一层reelpeat-product-video根目录，包含十个.mjs模块及引用文档，不含测试、凭据或运行数据。Codex包含agents/openai.yaml；WorkBuddy包转换顶层元信息。不修改源目录，也不读取或打包用户目录。
 
 ## 已知边界及发布前检查
 

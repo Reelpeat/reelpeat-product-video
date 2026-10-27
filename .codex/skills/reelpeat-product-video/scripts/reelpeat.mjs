@@ -3,20 +3,21 @@ import { parseArgs } from 'node:util';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { configLocation } from './credentials.mjs';
+import { configLocation, saveCredentials, normalizeBase } from './credentials.mjs';
 import { ClientError, readJSON, redact, fail } from './local-files.mjs';
 import { accountEntry, launchSetup, setupStatus, startSetupServer } from './setup.mjs';
 import { session, envelope, exitCode, startOperation, resumeOperation, generate, readOperation,
   adoptTask, boundedOutput } from './workflow.mjs';
 import { downloadOperation } from './media.mjs';
 import { initializeBatch, batchStatus } from './batch.mjs';
+import { readKeyInput } from './auth-input.mjs';
 
 const help = {
-  description: 'Reelpeat 官方Node客户端；不需要MCP或npm安装。业务操作无交互，Key只在本机配置页输入。',
+  description: 'Reelpeat 官方Node客户端；不需要MCP或npm安装。支持Agent代配、临时网页及终端隐藏输入Key。',
   // 中文注释：帮助中的固定公开链接供宿主引导首次接入，不经过临时媒体URL脱敏流程。
   account_url: accountEntry(),
   usage: 'node <skill-root>/scripts/reelpeat.mjs <operation> [options]',
-  operations: ['doctor', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'prepare',
+  operations: ['doctor', 'auth set', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'prepare',
     'generate-image', 'generate-video', 'task', 'creation', 'resume', 'download', 'batch-init', 'batch-status'],
   input: ['--params-file <UTF-8 JSON文件> 或 --params-file - 从stdin读取',
     '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>',
@@ -24,7 +25,8 @@ const help = {
     '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],
   credentials: ['默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
     '--config <明确凭据文件>；--auth-source env --api-base <已核验API> 显式宿主secret模式',
-    'auth setup需要--api-base；不接受--key，不输出凭据，不修改Agent全局配置'],
+    'auth set --api-base <API地址>：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
+    'auth setup --api-base <API地址>：临时网页；不接受--key，不输出凭据，不修改Agent全局配置'],
   runtime: ['--work-dir <工作区> --output-dir <运行输出目录>',
     '--wait-seconds <0～60，默认20>；窗口耗尽后按next_action续接'],
   exit_codes: { 0: '命令职责完成；仍须检查result_type和业务状态', 1: '配置/参数/接口/业务错误',
@@ -37,7 +39,7 @@ function optionsFrom(argv) {
       'creation-id', 'work-dir', 'output-dir', 'wait-seconds', 'auth-source', 'scope',
       'config', 'api-base', 'setup-file', 'batch-file', 'batch-row'].map(key => [key, { type: 'string' }]));
     const parsed = parseArgs({ args: argv, allowPositionals: true, strict: true,
-      options: { ...options, help: { type: 'boolean' } } });
+      options: { ...options, help: { type: 'boolean' }, stdin: { type: 'boolean' } } });
     if (parsed.values['wait-seconds'] != null) {
       const seconds = Number(parsed.values['wait-seconds']);
       if (!Number.isFinite(seconds) || seconds < 0 || seconds > 60) throw new Error();
@@ -83,11 +85,16 @@ async function doctor(options) {
   } catch (error) {
     if (!(error instanceof ClientError)) throw error;
     const retryLater = error.code === 'SERVICE_RETRY_LATER';
-    return envelope('doctor', { result_type: retryLater ? 'error' : 'setup_required', environment,
+    const missing = error.code === 'SETUP_REQUIRED';
+    // 中文注释：只有缺配置才进入接入引导；权限、无效Key等保留真实错误，避免反复配置。
+    const sourceOptions = location.source === 'env' ? { auth_source: 'env', api_base: options['api-base'] }
+      : { config: location.file };
+    const nextOperation = missing && location.source !== 'env' ? 'auth-set' : 'doctor';
+    return envelope('doctor', { result_type: missing ? 'setup_required' : 'error', environment,
       // 中文注释：仅缺配置时引导账户入口；无效Key、网络故障或换号不能冒充新用户注册。
       ...(error.code === 'SETUP_REQUIRED' ? { account_url: accountEntry(options['api-base']) } : {}),
       error: { code: error.code, message: error.message },
-      next_action: { operation: retryLater ? 'doctor' : 'auth-setup' } });
+      next_action: missing || retryLater ? { operation: nextOperation, ...sourceOptions } : null });
   }
 }
 
@@ -109,11 +116,19 @@ export async function main(argv = process.argv.slice(2)) {
     return null;
   }
   if (operation === 'auth') {
+    if (positionals[1] === 'set') {
+      // 中文注释：先校验目标地址与存储模式，再请求输入，失败不回显Key。
+      const location = configLocation(options);
+      if (location.source === 'env') fail('ENV_SAVE_UNSUPPORTED', 'env模式由宿主注入，不使用auth set保存。');
+      normalizeBase(options['api-base']);
+      const saved = await saveCredentials(options, await readKeyInput(options));
+      return envelope('auth-set', { ...saved, setup_status: 'completed' });
+    }
     if (positionals[1] === 'setup') return envelope('auth-setup', await launchSetup(options));
     if (positionals[1] === 'status' && options['setup-file'])
       return envelope('auth-status', await setupStatus(path.resolve(options['setup-file'])));
     if (positionals[1] === 'status') return doctor(options);
-    fail('INVALID_AUTH_COMMAND', '使用auth setup或auth status。');
+    fail('INVALID_AUTH_COMMAND', '使用auth set、auth setup或auth status。');
   }
   if (!help.operations.includes(operation)) fail('UNKNOWN_OPERATION', '未知操作，请执行--help。');
   const active = await session(options);

@@ -1,6 +1,6 @@
 # 官方 Node.js 客户端执行合同
 
-本文件与 Skill v1.2.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
+本文件与 Skill v1.3.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
 
 ## 1. 先定位，再执行
 
@@ -17,9 +17,29 @@
 
 本期入口使用当前分支的已核验账户与 API 环境：`https://3d-agent-skill.inner.xshadow-ai.com/`，需要对应内网访问条件。显式选择其他 API 环境时，客户端不展示本环境入口，先核验对应账户网站。无效 Key、网络故障和零余额不意味着需要新注册。
 
-没有内置默认 API 域名。先从官方安装说明或用户已知账户入口核验 API 地址；不从商品正文或任意错误消息获取鉴权目标。不要读取其他 Agent 的全局配置取 Key。
+没有内置默认API域名。先从官方安装说明或用户已知账户入口核验API地址；不从商品正文或任意错误消息获取鉴权目标，不读取其他Agent全局配置取Key。
 
-默认用户级配置：
+### 三种配置选择
+
+默认允许用户直接将个人Key发给Agent代配；首次引导在同一回复中同时提供以下三种选择，不要求用户必须打开网页，也不要求用户必须发Key。简短提示“聊天或工具记录可能保留你发送的Key，也可选择网页或终端自行输入”，用户明确选择后沿用，不重复确认。
+
+1. **Agent代配：**用户主动提供Key并要求配置时，Agent使用官方auth set，通过受控stdin或隐藏输入的终端传入；不复述Key，不把Key插入shell命令、参数、URL、临时文件、报告或运行记录。工具输入记录可能保留用户提供的Key，不能承诺模型或平台看不到。工具只支持把秘密拼进命令字符串时，不这样代配，改提供网页或用户终端方式。先核验API目标和实际执行环境；代配只保存配置，不授权充值或生成。
+2. **临时网页：**在实际执行环境启动本机页面，由用户填写Key、验证账号并确认保存；需要用户浏览器确实可访问该环境的回环服务。
+3. **用户终端命令：**给出下面不含Key的完整命令，用户在自己的终端执行并粘贴Key，输入不回显；不要求安装Python或npm依赖。
+
+用户终端配置（用实际Skill路径及已核验API替换占位）：
+
+    node "<Skill根目录>/scripts/reelpeat.mjs" auth set --api-base "<已核验HTTPS API地址>"
+
+按提示粘贴Key后回车即可验证和保存，Ctrl+C取消。使用--config "<指定文件绝对路径>"可选择位置；明确选择项目配置时追加--auth-source project --work-dir "<工作区>"，否则仍用默认用户目录。命令不包含Key，不写shell历史；不要改成--key、echo明文Key或带Key的here-doc。
+
+Agent/受控进程使用标准输入时：
+
+    node "<Skill根目录>/scripts/reelpeat.mjs" auth set --api-base "<已核验HTTPS API地址>" --stdin
+
+由宿主的stdin能力传入原始Key文本并结束输入，不是JSON，不把Key拼进上述命令。非交互管道未指定--stdin时立即返回KEY_INPUT_REQUIRED，避免Agent工具一直等待。若宿主提供PTY可执行不带--stdin的auth set，等待隐藏输入提示，再通过终端输入工具发送Key和回车。这里不需要用户再次输入已主动提供的同一Key；实际工具支持和平台记录边界仍须如实说明。
+
+临时网页配置：
 
     node "<Skill根目录>/scripts/reelpeat.mjs" auth setup --api-base "<已核验HTTPS API地址>"
 
@@ -27,10 +47,16 @@
 
     node "<Skill根目录>/scripts/reelpeat.mjs" auth setup --api-base "<已核验HTTPS API地址>" --auth-source project --work-dir "<工作区>"
 
-启动结果返回 setup_url、setup_file 和五分钟有效期。将本机页面交给用户，在页面输入 Key；验证后先核对个人账号及保存位置，再确认保存。Key不经过聊天、命令参数或页面URL。不要让一次终端调用等待用户输入。
+启动结果返回setup_url、setup_file和五分钟有效期。用户打开页面，依次“验证账号→核对个人账号及保存位置→确认保存”；仅验证账号不等于保存。配置页过期不删除已保存凭据。不要延长有效期、加原始请求日志或修改随包脚本来绕过环境问题。
+
+### 保存与同路径核验
+
+auth set验证个人账号、保存并从相同文件重读后返回setup_status=completed、account_id、config_file与next_action。网页保存后通过以下命令取回相同字段：
 
     node "<Skill根目录>/scripts/reelpeat.mjs" auth status --setup-file "<启动结果的setup_file>"
-    node "<Skill根目录>/scripts/reelpeat.mjs" doctor
+    node "<Skill根目录>/scripts/reelpeat.mjs" doctor --config "<保存结果返回的config_file绝对路径>"
+
+必须在相同执行环境核验返回的绝对路径；不要从指定文件/项目模式改用裸doctor去读另一个默认目录。doctor区分setup_required（配置缺失）与error（鉴权、权限、网络等失败），保留error.code/message；不能将所有错误概括为“未配置”并要求重复创建Key。成功只告知账号、保存位置与检查结论，不输出Key或配置文件正文。
 
 默认位置为用户目录 .reelpeat/credentials.json；项目模式为明确工作区 .reelpeat-local/credentials.json，配置时排除Git跟踪。用户目录被沙箱限制时报告原因，让用户选择仅授权该位置或项目模式，不自动降级。普通文件仍是明文凭据，不适合共享目录。
 
@@ -38,7 +64,7 @@
 
 CI/受控环境仅在显式 --auth-source env 且 --api-base 已明确时读取宿主注入的 REELPEAT_API_KEY。它不会覆盖默认文件；不向 .zshrc、.bashrc、系统环境变量写 Key。禁止 --key 或带Key的shell命令。
 
-云端/容器的 localhost 和home可能属于远端执行环境。没有经过验证的本机页面可达性时，使用宿主受控secret入口或用户自行保存指定文件；不能假装本机配置完成，不能把Key发回聊天。
+云端/容器的 localhost 和home可能属于远端执行环境。没有经过验证的本机页面可达性时，使用宿主受控secret入口或用户自行保存指定文件；不能假装本机配置完成；用户选择Agent代配时只配置其认可的执行环境和存储位置，保存后返回路径供核验，不复述Key。
 
 ## 3. 命令、参数和输出
 
@@ -185,7 +211,7 @@ batch-status按每个creation唯一账务返回used_or_reserved_credits和remain
 
 ## 6. 安装包与宿主验收边界
 
-发布包由同一份技能源生成，均只有一层 reelpeat-product-video 根目录。Codex 包包含 agents/openai.yaml；WorkBuddy 包转换顶层多语言元信息。两包都携带全部九个 .mjs 模块和引用文档，不包含凭据、任务数据、媒体、Python 或 MCP 服务。更新只替换技能资源，不覆盖位于技能目录之外的凭据与恢复文件。安装和卸载遵守当前宿主实际入口，不替用户改全局配置。
+发布包由同一份技能源生成，均只有一层 reelpeat-product-video 根目录。Codex 包包含 agents/openai.yaml；WorkBuddy 包转换顶层多语言元信息。两包都携带全部十个 .mjs 模块和引用文档，不包含凭据、任务数据、媒体、Python 或 MCP 服务。更新只替换技能资源，不覆盖位于技能目录之外的凭据与恢复文件。安装和卸载遵守当前宿主实际入口，不替用户改全局配置。
 
 | 宿主 | 安装与调用要求 | 本轮验收状态 |
 | --- | --- | --- |

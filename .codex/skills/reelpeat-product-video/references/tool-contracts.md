@@ -79,7 +79,7 @@
 
 | 事实 | 应做什么 |
 | --- | --- |
-| 无连接/401/Key 失效或撤销 | 保留创作，引导官方 Key 设置与凭据表单；不收集聊天 secret |
+| 无连接/401/Key 失效或撤销 | 保留创作，引导官方Key设置；用户可选择Agent代配、临时网页或终端命令。MCP代配仍须宿主有对应凭据设置能力，不将Key塞进八个业务工具参数 |
 | 403/scope 不足 | 引导本人管理页调整；缺余额权限不显示余额或差额 |
 | `UNSUPPORTED_PRODUCT_URL` / `PRODUCT_PARSE_NOT_ENABLED` | 告知平台或开关限制，不改用任意网页抓取。当前解析路由仅识别规定格式 TikTok 商品 URL，不能宣传全平台或短链均支持 |
 | `FULL_VIDEO_PARAMS_REQUIRED` / `IMAGE_SPEC_NOT_QUOTABLE` | 依据可信能力补齐输入或暂停，不猜 SKU；修改输入须重新准备 |

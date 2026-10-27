@@ -114,7 +114,10 @@ export async function saveCredentials(options, key, { fetchImpl = fetch } = {}) 
   if (location.source === 'project') await ignoreProjectCredential(location);
   await atomicJSON(location.file, { schema_version: 1, ...credentials,
     account_id: String(context.account_id) });
+  // 中文注释：保存后从同一绝对路径重读核验，后续doctor也显式沿用此路径。
+  await loadCredentials({ config: location.file });
   return { credential_source: location.source, config_file: location.file,
     account_id: String(context.account_id), scopes: context.scopes || [],
-    max_credits_per_generation: context.max_credits_per_generation ?? null };
+    max_credits_per_generation: context.max_credits_per_generation ?? null,
+    next_action: { operation: 'doctor', config: location.file } };
 }

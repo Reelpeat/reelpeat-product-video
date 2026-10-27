@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
+import { readFile, stat, chmod } from 'node:fs/promises';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { request as httpRequest } from 'node:http';
 import { accountEntry, startSetupServer } from '../../.codex/skills/reelpeat-product-video/scripts/setup.mjs';
 import { saveCredentials } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
 import { readJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { fixture, cli, secret } from './client-fixture.mjs';
+import { fixture, cli, secret, entry } from './client-fixture.mjs';
 
 test('首次接入保留推广参数及固定Key回跳，不为其他环境或无效Key引导注册', async t => {
   const f = await fixture(t);
@@ -32,6 +32,8 @@ test('首次接入保留推广参数及固定Key回跳，不为其他环境或�
   const failed = await fixture(t, { authFailure: true });
   const rejected = await cli(['doctor', '--config', failed.config]);
   assert.equal(rejected.value.error.code, 'AUTH_CHECK_FAILED');
+  assert.equal(rejected.value.result_type, 'error');
+  assert.equal(rejected.value.next_action, null);
   assert.equal(rejected.value.account_url, undefined);
 });
 
@@ -113,6 +115,7 @@ test('CLI配置启动及时交还地址，用户保存后同会话配置检查�
   assert.equal(saved.status, 200);
   const status = await cli(['auth', 'status', '--setup-file', launched.value.setup_file]);
   assert.equal(status.value.setup_status, 'completed');
+  assert.deepEqual(status.value.next_action, { operation: 'doctor', config: destination });
   const checked = await cli(['doctor', '--config', destination]);
   assert.equal(checked.code, 0); assert.equal(checked.value.account_id, 'fixture-A');
 });
@@ -130,10 +133,119 @@ test('失败配置保留旧文件；会话自然超时关闭，不留常驻进�
   const response = await fetch(url, { method: 'POST', headers: { Origin: new URL(url).origin },
     body: new URLSearchParams({ csrf, key: 'synthetic-new-key' }) });
   assert.equal(response.status, 400);
+  assert.match(await response.text(), /AUTH_CHECK_FAILED/);
   assert.equal(await readFile(f.config, 'utf8'), before);
   await new Promise(resolve => setTimeout(resolve, 220));
   assert.equal((await readJSON(setupFile)).status, 'expired');
   assert.equal(server.listening, false);
+});
+
+test('Agent通过stdin代配后返回原路径，跨cwd显式doctor成功且不回显Key', async t => {
+  const f = await fixture(t), destination = path.join(f.root, 'agent private', 'credentials.json');
+  const saved = await cli(['auth', 'set', '--api-base', f.base, '--config', destination, '--stdin'],
+    { input: secret + '\n' });
+  assert.equal(saved.code, 0);
+  assert.equal(saved.value.setup_status, 'completed');
+  assert.equal(saved.value.account_id, 'fixture-A');
+  assert.deepEqual(saved.value.next_action, { operation: 'doctor', config: destination });
+  assert.ok(!saved.stdout.includes(secret));
+  assert.ok(!saved.stderr.includes(secret));
+  assert.equal((await readJSON(destination)).api_key, secret);
+  const checked = await cli(['doctor', '--config', saved.value.next_action.config], { cwd: path.dirname(f.root) });
+  assert.equal(checked.code, 0);
+  assert.equal(checked.value.environment.config_file, destination);
+  assert.equal(f.requests.filter(request => request.method === 'POST').length, 0);
+});
+
+test('非终端未声明stdin不等待；非法、过长或鉴权失败保留原配置', async t => {
+  const f = await fixture(t), before = await readFile(f.config, 'utf8');
+  const args = ['auth', 'set', '--api-base', f.base, '--config', f.config];
+  assert.equal((await cli(args)).value.error.code, 'KEY_INPUT_REQUIRED');
+  const envMode = await cli(['auth', 'set', '--api-base', f.base, '--auth-source', 'env', '--stdin'], { input: secret });
+  assert.equal(envMode.value.error.code, 'ENV_SAVE_UNSUPPORTED');
+  for (const [input, code] of [['two keys', 'INVALID_CREDENTIAL'], ['x'.repeat(17000), 'INVALID_CREDENTIAL']]) {
+    const result = await cli([...args, '--stdin'], { input });
+    assert.equal(result.code, 1); assert.equal(result.value.error.code, code);
+    assert.equal(await readFile(f.config, 'utf8'), before);
+  }
+  const rejected = await fixture(t, { authFailure: true });
+  const failed = await cli(['auth', 'set', '--api-base', rejected.base, '--config', f.config, '--stdin'], { input: secret });
+  assert.equal(failed.value.error.code, 'AUTH_CHECK_FAILED');
+  assert.equal(await readFile(f.config, 'utf8'), before);
+  assert.ok(!failed.stdout.includes(secret));
+});
+
+test('配置文件权限错误与缺配置分别返回error和setup_required', { skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t);
+  await chmod(f.config, 0o644);
+  const denied = await cli(['doctor', '--config', f.config]);
+  assert.equal(denied.value.result_type, 'error');
+  assert.equal(denied.value.error.code, 'PRIVATE_PERMISSIONS_REQUIRED');
+  assert.equal(denied.value.next_action, null);
+  const missing = await cli(['doctor', '--config', path.join(f.root, 'absent.json')]);
+  assert.equal(missing.value.result_type, 'setup_required');
+  assert.equal(missing.value.next_action.config, path.join(f.root, 'absent.json'));
+  const envMissing = await cli(['doctor', '--auth-source', 'env', '--api-base', f.base], { env: { REELPEAT_API_KEY: '' } });
+  assert.equal(envMissing.value.result_type, 'setup_required');
+  assert.equal(envMissing.value.next_action.operation, 'doctor');
+});
+
+// 中文注释：POSIX伪终端验证真实TTY回显与取消；Python仅为测试夹具，客户端没有该依赖。
+async function terminalCLI(args, cancel = false) {
+  const script = String.raw`
+import os,pty,select,subprocess,sys,json,time,errno
+data=json.load(sys.stdin)
+master,slave=pty.openpty()
+child=subprocess.Popen(data['args'],stdin=slave,stdout=slave,stderr=slave,close_fds=True)
+os.close(slave)
+output=b''; sent=False
+try:
+    deadline=time.monotonic()+15
+    while time.monotonic()<deadline:
+        readable,_,_=select.select([master],[],[],0.1)
+        if readable:
+            try: chunk=os.read(master,65536)
+            except OSError as e:
+                if e.errno==errno.EIO: break
+                raise
+            if not chunk: break
+            output+=chunk
+            if not sent and b'API Key' in output:
+                os.write(master,b'\x03' if data['cancel'] else data['key'].encode()+b'\n')
+                sent=True
+        elif child.poll() is not None: break
+    if child.poll() is None: raise RuntimeError('Terminal timeout')
+    print(json.dumps({'code':child.returncode,'sent':sent,'output':output.decode('utf-8','replace')}))
+finally:
+    if child.poll() is None: child.kill(); child.wait()
+    os.close(master)
+`;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.env.REELPEAT_TEST_PYTHON || 'python3', ['-c', script], { stdio: 'pipe' });
+    let stdout = '', stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', code => {
+      if (code) reject(new Error('伪终端夹具失败：' + stderr));
+      else { try { resolve(JSON.parse(stdout)); } catch (error) { reject(error); } }
+    });
+    child.stdin.end(JSON.stringify({ args: [process.execPath, entry, ...args], key: secret, cancel }));
+  });
+}
+
+test('用户终端隐藏输入后保存，Ctrl+C取消不改配置', { skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t), destination = path.join(f.root, 'terminal private', 'credentials.json');
+  const args = ['auth', 'set', '--api-base', f.base, '--config', destination];
+  const saved = await terminalCLI(args);
+  assert.equal(saved.code, 0); assert.equal(saved.sent, true);
+  assert.ok(!saved.output.includes(secret));
+  assert.equal((await readJSON(destination)).api_key, secret);
+  const before = await readFile(destination, 'utf8');
+  const cancelled = await terminalCLI(args, true);
+  assert.equal(cancelled.code, 1);
+  assert.match(cancelled.output, /AUTH_INPUT_CANCELLED/);
+  assert.equal(await readFile(destination, 'utf8'), before);
 });
 
 test('显式项目模式添加忽略规则，已跟踪的凭据目标拒绝覆盖', async t => {

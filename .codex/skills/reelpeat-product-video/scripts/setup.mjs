@@ -3,7 +3,7 @@ import { randomUUID, randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { atomicJSON, readJSON, fail } from './local-files.mjs';
+import { atomicJSON, readJSON, fail, ClientError } from './local-files.mjs';
 import { configLocation, normalizeBase, normalizeKey, verifyIdentity, saveCredentials } from './credentials.mjs';
 
 // 中文注释：仅维护公开获客入口；来源参数不含账号或凭据，登录后只回到本站个人Key管理。
@@ -17,7 +17,7 @@ export function accountEntry(apiBase) {
 
 const html = (nonce, apiBase) => '<!doctype html><html lang="zh-CN"><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width,initial-scale=1"><title>配置 Reelpeat</title>' +
-  '<body><h1>配置 Reelpeat</h1><p>在本机保存个人 Key，保存后下次调用立即生效。不要在聊天中发送 Key。</p>' +
+  '<body><h1>配置 Reelpeat</h1><p>在本机保存个人 Key，验证并确认保存后立即生效；也可选择Agent代配或终端配置。</p>' +
   (accountEntry(apiBase) ? '<p>还没有个人 Key？<a href="' + escapeHTML(accountEntry(apiBase)) +
     '" target="_blank" rel="noopener noreferrer">注册／登录 Reelpeat，创建个人 Key</a>。已有账号直接登录，无需重复注册。</p>' : '') +
   '<form method="post"><input type="hidden" name="csrf" value="' + nonce + '">' +
@@ -89,12 +89,15 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
       await atomicJSON(setupFile, { ...state, status: 'completed', ...saved });
       finished = true; pendingKey = '';
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
-      response.end('<!doctype html><meta charset="utf-8"><p>已验证并保存。可关闭页面，返回Agent执行配置检查。</p>');
+      response.end('<!doctype html><meta charset="utf-8"><p>已验证并保存，且已从相同位置重读核验。</p><p>保存位置：' +
+        escapeHTML(saved.config_file) + '</p><p>可关闭页面，返回Agent按此位置执行doctor检查。</p>');
       server.close();
-    } catch {
+    } catch (error) {
       pendingKey = '';
+      // 中文注释：只显示客户端受控错误，不回显原始请求、Key、系统异常或堆栈。
+      const detail = error instanceof ClientError ? error.code + '：' + error.message : '配置处理失败。';
       response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
-        .end('验证或保存未成功，请核对Key、服务地址、文件权限；原配置保持不变。');
+        .end(detail + '\n验证或保存未成功，请核对Key、服务地址、文件权限，再检查所选配置位置。');
     } finally { busy = false; }
   });
   await new Promise((resolve, reject) => {
@@ -147,5 +150,5 @@ export async function setupStatus(setupFile) {
   return { result_type: state.status === 'completed' ? 'accepted' : 'setup_required',
     setup_status: state.status, account_id: state.account_id || null,
     config_file: state.config_file || null, expires_at: state.expires_at,
-    next_action: state.status === 'completed' ? { operation: 'doctor' } : null };
+    next_action: state.status === 'completed' ? { operation: 'doctor', config: state.config_file } : null };
 }
