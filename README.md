@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.3**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.4**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -73,6 +73,8 @@ doctor仅检查身份、能力及有权限时的余额，不解析商品、不�
 - 退出码3表示原任务成功但媒体交付不完整，只重试download。
 - 原任务、授权及素材绑定账号和API地址，换账号或网关不能直接沿用旧记录。
 - 保存的原图、提示词和恢复记录属于用户资料，默认位于工作区 `.reelpeat-local/`，不应提交Git。
+
+每个用户可感知阶段都会说明当前结果/阻塞、下一步具体操作以及由谁执行。需要用户操作时给真实链接、完整命令或可直接回复的内容；助手可在既有授权内继续时说明后直接推进，不每一步都问是否继续。等待窗口结束给原任务续查方式，交付完成说明查看/下载方式和无需其他必做操作。批次仍一次确认范围内连续执行，不能把进度提示变成逐行审批。详见[分阶段用户引导](.codex/skills/reelpeat-product-video/references/progress-guidance.md)。
 
 ## 表格批次制作
 
