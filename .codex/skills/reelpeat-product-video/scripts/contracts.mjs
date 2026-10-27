@@ -25,14 +25,13 @@ export function validateResolve(input, context) {
   fields(input, ['product_url', 'target_market']);
   const capability = context.capability_details?.product_parse;
   if (!context.capabilities?.includes('product_parse') || capability?.billing?.status !== 'not_billable' ||
-      capability.billing.credits !== 0 || !capability.platforms?.includes('tiktok_shop'))
+      capability.billing.credits !== 0)
     fail('CAPABILITY_UNAVAILABLE', '当前身份未开放具有明确免费政策的商品解析。');
   let url;
   try { url = new URL(input.product_url); } catch { fail('INVALID_PRODUCT_URL', '请输入有效商品链接。'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash ||
-      !capability.url_hosts?.includes(url.hostname) || typeof capability.url_path_pattern !== 'string' ||
-      !new RegExp(capability.url_path_pattern).test(url.pathname))
-    fail('UNSUPPORTED_PRODUCT_URL', '商品链接不在当前已开放的平台和路径范围。');
+  // 中文注释：客户端不按平台、域名或路径预拦截；变体/分享参数原样交由服务端尝试。
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password)
+    fail('INVALID_PRODUCT_URL', '请输入不含账号密码的HTTP或HTTPS商品链接。');
   text(input.target_market, 'target_market', 100);
 }
 

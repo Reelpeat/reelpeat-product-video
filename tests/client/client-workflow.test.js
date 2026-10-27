@@ -5,11 +5,45 @@ import path from 'node:path';
 import { session, startOperation, resumeOperation, generate, readOperation, exitCode,
   boundedOutput } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
 import { validateAuthorization } from '../../.codex/skills/reelpeat-product-video/scripts/contracts.mjs';
-import { atomicJSON, readJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
+import { atomicJSON, readJSON, redact } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
 import { saveCredentials, loadCredentials, configLocation } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
 import { downloadOperation, downloadMedia } from '../../.codex/skills/reelpeat-product-video/scripts/media.mjs';
 import { createAdapter } from '../../.codex/skills/reelpeat-product-video/scripts/api-client.mjs';
 import { fixture, cli, secret, preparationInput, authorization } from './client-fixture.mjs';
+
+test('商品解析不按平台或旧能力白名单预拦截，完整保留Lazada和其他商城链接', async t => {
+  const f = await fixture(t), active = await session(f.options);
+  const urls = [
+    'https://www.lazada.com.my/products/pdp-i4760826391-s26811211292.html',
+    'https://www.amazon.com/dp/B09B8V1LZ3?th=1',
+    'https://store.example.com/products/item?variant=black&utm_source=share',
+    'http://shop.example.com/item/sku-123',
+  ];
+  for (const product_url of urls) {
+    // 中文注释：夹具仍返回旧TikTok范围，客户端也必须交给服务端尝试，不能提前断言不支持。
+    const result = await startOperation('resolve', { product_url, target_market: 'MY' },
+      f.options, active);
+    assert.equal(result.task_status, 'completed');
+  }
+  assert.deepEqual(f.requests.filter(item => item.method === 'POST' &&
+    item.path === '/api/open/v1/products/resolve').map(item => item.body.product_url), urls);
+});
+
+test('商品变体参数可恢复，商品签名、真实Key及临时媒体URL仍不可进入业务记录', async t => {
+  const f = await fixture(t), active = await session(f.options);
+  for (const query of ['token=hidden', 'accessToken=hidden', 'X-Amz-Signature=hidden', '%61pi_key=hidden']) {
+    await assert.rejects(startOperation('resolve', {
+      product_url: 'https://store.example.com/item?' + query, target_market: 'MY',
+    }, f.options, active), error => error.code === 'SENSITIVE_INPUT');
+  }
+  const url = 'https://store.example.com/item?variant=black&sku=123';
+  const parsed = await startOperation('resolve', { product_url: url, target_market: 'MY' }, f.options, active);
+  const state = await readJSON(parsed.recovery_file);
+  assert.equal(state.requests.resolve.product_url, url);
+  assert.equal(redact({ product_url: url }).product_url, url);
+  assert.ok(!JSON.stringify(redact({ preview_url: 'https://cdn.example.com/item?sig=hidden',
+    product_url: url + '&other=' + secret }, [secret])).includes(secret));
+});
 
 async function recordEvidence(name, value) {
   // 中文注释：只在测试显式指定时保留合成断言摘要，不保存凭据、媒体链接或临时私有文件。

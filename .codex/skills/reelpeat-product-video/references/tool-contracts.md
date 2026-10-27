@@ -25,7 +25,7 @@
 
 新增能力发现合同保持 `capabilities` 为字符串列表，详情按同名键读取：
 
-- `product_parse`：`platforms/url_hosts/url_path_pattern/target_market_required` 给出 TikTok 商品链接边界，`billing.status=not_billable/credits=0` 表示试点解析不扣 R 币。只支持符合这些边界的链接，不能据此宣传其他平台或短链。
+- `product_parse`：`billing.status=not_billable/credits=0` 表示解析不扣 R 币。`url_policy=public_http`、`platforms=["*"]` 表示公开 HTTP(S) 商品链接均可提交尝试，`availability=determined_by_parse_result` 表示以实际来源响应判断可用性；不是保证所有网站都能抓取成功。旧清单列出的平台、域名或路径仅作为历史提示，不用它提前拒绝 Lazada、Amazon、短链或其他商城；权限、URL安全与缺失事实检查仍保留。
 - `video_generation`：`specifications` 每项含 `model/resolution/sku_id/durations`，与同级 `ratios/generate_audio/camera_fixed/required_params` 组合出完整 `params`。只使用清单实际包含的组合和整数秒数。规格取执行能力与当前目录、业务倍率的交集，不把目录中的其他 SKU 当成支持值。
 - 视频 `billing.preparation_credits=0/quote_required=true` 表示准备不扣 R 币、生成仍须取得正式 Quote。能力发现不创建 Quote、不返回本次正式价格，也不证明余额足够。Key 额度与费用授权仍分别校验。
 
@@ -81,7 +81,7 @@
 | --- | --- |
 | 无连接/401/Key 失效或撤销 | 保留创作，引导官方Key设置；用户可选择Agent代配、临时网页或终端命令。MCP代配仍须宿主有对应凭据设置能力，不将Key塞进八个业务工具参数 |
 | 403/scope 不足 | 引导本人管理页调整；缺余额权限不显示余额或差额 |
-| `UNSUPPORTED_PRODUCT_URL` / `PRODUCT_PARSE_NOT_ENABLED` | 告知平台或开关限制，不改用任意网页抓取。当前解析路由仅识别规定格式 TikTok 商品 URL，不能宣传全平台或短链均支持 |
+| `INVALID_PRODUCT_URL` / `UNSUPPORTED_PRODUCT_URL` / `PRODUCT_PARSE_NOT_ENABLED` | 按本次实际响应说明链接安全/格式或服务不可用，不从平台名称预先断言失败；保留原链接与需求。解析失败可请用户提供商品信息和原图，不绕过官方入口、不伪造事实 |
 | `FULL_VIDEO_PARAMS_REQUIRED` / `IMAGE_SPEC_NOT_QUOTABLE` | 依据可信能力补齐输入或暂停，不猜 SKU；修改输入须重新准备 |
 | `QUOTE_EXPIRED` / `QUOTE_INPUT_MISMATCH` / `QUOTE_ALREADY_USED` | 先查原请求受理事实；确认新操作后按准备和授权规则处理 |
 | 余额不足 | 用服务端已授权披露的差额，引导个人充值；不能保证充值套餐恰好等于差额 |

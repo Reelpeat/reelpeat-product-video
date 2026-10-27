@@ -111,12 +111,27 @@ export async function readJSON(target, { privateMode = false } = {}) {
   finally { await handle?.close(); }
 }
 
-// 中文注释：持久化与stdout都排除凭据、临时媒体链接及URL查询参数。
+function safeProductURL(value) {
+  // 中文注释：商品的SKU/分享参数属于输入身份；凭据与临时签名仍不能进入业务记录。
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password &&
+      ![...url.searchParams.keys()].some(key => /(?:^|[_-])(?:key|api[_-]?key|(?:access|refresh|id|auth|security)[_-]?token|token|authorization|auth|signature|sign|sig|secret|password|cookie|credential)(?:$|[_-])/i.test(key));
+  } catch { return false; }
+}
+
+// 中文注释：仅商品输入可保留非秘密查询参数，临时媒体链接和凭据仍脱敏。
 export function redact(value, secrets = []) {
   if (Array.isArray(value)) return value.map(item => redact(item, secrets));
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)
     .filter(([key]) => !/^(api_key|authorization|cookie|token|secret|password|preview_url|video_url|download_url)$/i.test(key))
-    .map(([key, item]) => [key, redact(item, secrets)]));
+    .map(([key, item]) => {
+      if (key === 'product_url' && typeof item === 'string' && safeProductURL(item)) {
+        for (const secret of secrets.filter(Boolean)) item = item.split(secret).join('[redacted]');
+        return [key, item];
+      }
+      return [key, redact(item, secrets)];
+    }));
   if (typeof value !== 'string') return value;
   let result = value;
   for (const secret of secrets.filter(Boolean)) result = result.split(secret).join('[redacted]');

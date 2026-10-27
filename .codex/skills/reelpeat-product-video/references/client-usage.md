@@ -94,7 +94,7 @@ CI/受控环境仅在显式 --auth-source env 且 --api-base 已明确时读取�
 | 命令 | 参数与职责 |
 | --- | --- |
 | context、balance | 读取当前身份/能力、余额；凭据来源选项同上 |
-| resolve | --params-file：product_url、target_market；检查正式平台与免费政策，创建一次并有限等待 |
+| resolve | --params-file：product_url、target_market；检查解析能力与免费政策，公开HTTP(S)商品链接不按平台预拦截，保留变体参数并交给服务端尝试，创建一次并有限等待 |
 | prepare | --params-file：creation_id、kind、prompt、asset_refs、params、visual_review，可附creative_summary；准备并报价，不自动生成 |
 | generate-video、generate-image | --run-file 原准备state.json，单条另需 --authorization-file 本次授权JSON；批次用 --batch-file 与 --batch-row；重新核查准备、金额、权限和余额，只提交一次 |
 | batch-init | --params-file：已明确确认的固定批次清单；创建本地batch.json，不提交生成 |
