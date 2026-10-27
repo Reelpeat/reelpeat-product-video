@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.5**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.6**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -28,14 +28,14 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs --help
 
 ## 当前网关与Key配置
 
-当前仍使用既有开发网关：
+默认网关：
 
-`https://3d-agent-skill.inner.xshadow-ai.com/`
+`https://www.realpeat.com/`
 
-该域名属于内网开发环境，需要具备对应网络访问条件；不是面向所有互联网用户的正式生产入口。发布源码不修改服务器网关、不改客户端默认行为、不读取或复制维护者已有Key。客户端仍没有内置默认API地址，首次配置显式传入已核验的网关：
+未提供网关时，新配置使用此默认地址；用户显式提供其他网关时以其为准，已有配置不被默认值覆盖。发布源码不修改服务器网关、不读取或复制维护者已有Key。首次配置可省略 `--api-base`，也可显式指定：
 
 ```bash
-node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://3d-agent-skill.inner.xshadow-ai.com/"
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://www.realpeat.com/"
 ```
 
 配置引导默认同时提供三种选择：**Agent代配、临时网页、终端隐藏输入**。允许用户将个人Key直接发给Agent代配；聊天或工具记录可能保留输入，用户也可以选择自行填写，不必把Key发给Agent。Agent不复述Key、不把它放进命令参数、URL或报告，只通过官方客户端的受控stdin/隐藏终端传入，不修改其他Agent全局配置。
@@ -43,7 +43,7 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-
 自行在终端配置时运行下面不含Key的命令，按提示粘贴后回车，输入不回显；Ctrl+C取消，不更改原配置：
 
 ```bash
-node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-base "https://3d-agent-skill.inner.xshadow-ai.com/"
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-base "https://www.realpeat.com/"
 ```
 
 Agent或受控进程可用auth set --stdin，通过工具的标准输入传入原始Key后结束输入；不要改成--key或echo明文Key的shell命令。临时网页仍用上方auth setup启动，用户按“验证账号→确认保存”完成，不是只点验证。Key从已核验的Reelpeat账户入口创建，使用doctor或--help返回的完整account_url引导注册/登录；已有账号不用重复注册，充值仍走已核验账户入口。

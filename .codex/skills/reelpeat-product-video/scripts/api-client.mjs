@@ -1,4 +1,6 @@
 const BASE = '/api/open/v1';
+// 中文注释：仅未指定地址时使用默认网关，显式地址仍须经过相同的安全校验。
+export const DEFAULT_API_BASE = 'https://www.realpeat.com/';
 const id = (value) => {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) throw new Error('无效的资源 ID');
   return encodeURIComponent(value);
@@ -39,11 +41,17 @@ function retryMetadata(response) {
     ? { retry_after_seconds: Math.max(0, Math.ceil((instant - Date.now()) / 1000)) } : {};
 }
 
-export function createAdapter({ baseUrl, fetchImpl = fetch, sleep = pause }) {
+export function normalizeApiBase(baseUrl = DEFAULT_API_BASE) {
   const url = new URL(baseUrl);
   if (url.protocol !== 'https:' && !(url.hostname === '127.0.0.1' && url.protocol === 'http:')) throw new Error('API 地址必须使用 HTTPS');
   if (url.username || url.password || url.search || url.hash) throw new Error('API 地址不可包含凭据或参数');
-  const prefix = url.href.endsWith('/') ? url.href : `${url.href}/`;
+  // 中文注释：明确的工作台页面使用同站API根地址，避免把页面路径拼进接口；其他部署前缀保留。
+  if (/^\/vorder\/app\/?$/.test(url.pathname)) url.pathname = '/';
+  return url.href.endsWith('/') ? url.href : `${url.href}/`;
+}
+
+export function createAdapter({ baseUrl, fetchImpl = fetch, sleep = pause }) {
+  const prefix = normalizeApiBase(baseUrl);
 
   return async (name, args, bearer, { deadline = Infinity } = {}) => {
     const op = operations[name];

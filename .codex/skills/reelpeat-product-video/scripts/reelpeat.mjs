@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { configLocation, saveCredentials, normalizeBase } from './credentials.mjs';
+import { configLocation, saveCredentials, configuredBase } from './credentials.mjs';
 import { ClientError, readJSON, redact, fail } from './local-files.mjs';
 import { accountEntry, launchSetup, setupStatus, startSetupServer } from './setup.mjs';
 import { session, envelope, exitCode, startOperation, resumeOperation, generate, readOperation,
@@ -23,10 +23,12 @@ const help = {
     '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>',
     '批次：batch-init --params-file <已明确确认的批次JSON>；batch-status --batch-file <batch.json>',
     '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],
-  credentials: ['默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
-    '--config <明确凭据文件>；--auth-source env --api-base <已核验API> 显式宿主secret模式',
-    'auth set --api-base <API地址>：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
-    'auth setup --api-base <API地址>：临时网页；不接受--key，不输出凭据，不修改Agent全局配置'],
+  // 中文注释：帮助与运行时采用同一网关优先级，既有配置不会被默认值覆盖。
+  credentials: ['默认网关https://www.realpeat.com/；--api-base <地址>优先于已有配置和默认值',
+    '默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
+    '--config <明确凭据文件>；--auth-source env 显式宿主secret模式，可另传--api-base',
+    'auth set [--api-base <地址>]：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
+    'auth setup [--api-base <地址>]：临时网页；不接受--key，不输出凭据，不修改Agent全局配置'],
   runtime: ['最低Node.js 18.3.0；不限制版本上限，不要求切换到指定主版本',
     '--work-dir <工作区> --output-dir <运行输出目录>',
     '--wait-seconds <0～60，默认20>；窗口耗尽后按next_action续接'],
@@ -101,7 +103,8 @@ async function doctor(options) {
 
 export async function main(argv = process.argv.slice(2)) {
   const { positionals, values: options } = optionsFrom(argv);
-  if (options.help || !positionals.length) return envelope('help', { data: help });
+  // 中文注释：显式选择其他网关时，帮助也不能引导用户去默认环境创建Key。
+  if (options.help || !positionals.length) return envelope('help', { data: { ...help, account_url: accountEntry(options['api-base']) } });
   if (positionals.length > (positionals[0] === 'auth' ? 2 : 1))
     fail('UNEXPECTED_POSITIONAL', '仅支持固定操作；业务参数请使用JSON文件或stdin。');
   const operation = positionals[0];
@@ -123,7 +126,7 @@ export async function main(argv = process.argv.slice(2)) {
       // 中文注释：先校验目标地址与存储模式，再请求输入，失败不回显Key。
       const location = configLocation(options);
       if (location.source === 'env') fail('ENV_SAVE_UNSUPPORTED', 'env模式由宿主注入，不使用auth set保存。');
-      normalizeBase(options['api-base']);
+      options['api-base'] = await configuredBase(options, location);
       const saved = await saveCredentials(options, await readKeyInput(options));
       return envelope('auth-set', { ...saved, setup_status: 'completed' });
     }

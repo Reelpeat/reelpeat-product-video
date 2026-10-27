@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, chmod, symlink, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { session, startOperation, resumeOperation, generate, readOperation, exitCode,
-  boundedOutput } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
+  boundedOutput, loadRun } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
 import { validateAuthorization } from '../../.codex/skills/reelpeat-product-video/scripts/contracts.mjs';
 import { atomicJSON, readJSON, redact } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { saveCredentials, loadCredentials, configLocation } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
+import { saveCredentials, loadCredentials, configLocation, normalizeKey, normalizeBase, verifyIdentity } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
 import { downloadOperation, downloadMedia } from '../../.codex/skills/reelpeat-product-video/scripts/media.mjs';
 import { createAdapter } from '../../.codex/skills/reelpeat-product-video/scripts/api-client.mjs';
 import { fixture, cli, secret, preparationInput, authorization } from './client-fixture.mjs';
@@ -263,8 +263,7 @@ test('配置文件原子保护、即时换Key，显式来源和服务绑定，�
   assert.equal((await readOperation('context', {}, await session(f.options))).account_id, active.context.account_id);
   assert.equal((await resumeOperation(prepared.recovery_file, f.options, await session(f.options))).task_id, prepared.task_id);
   assert.equal(f.requests.filter(item => item.method === 'POST').length, 1);
-  await assert.rejects(loadCredentials({ ...f.options, 'api-base': 'https://other.invalid/' }),
-    error => error.code === 'API_BINDING_MISMATCH');
+  assert.equal((await loadCredentials({ ...f.options, 'api-base': 'https://other.invalid/' })).api_base_url, 'https://other.invalid/');
   assert.throws(() => configLocation({ config: f.config, 'auth-source': 'user' }));
   await chmod(f.config, 0o644);
   if (process.platform !== 'win32')
@@ -366,4 +365,108 @@ test('报价到期瞬间与显式时区偏移使用同一UTC事实，不依赖�
   assert.equal(validateAuthorization(auth, state, {}, prep, now - 1), 8);
   assert.throws(() => validateAuthorization({ ...auth, authorized_at: '2026-10-23T08:00:00' },
     state, {}, prep, now - 1), error => error.code === 'INVALID_TIME');
+});
+
+// 中文注释：个人Key与环境错误不能被通用报错误诊为团队Key；响应原文禁止透传。
+test('身份检查区分无效Key、失效、空间请求头和权限，不泄露服务原文', async () => {
+  const credentials = { api_key: secret, api_base_url: 'https://fixture.invalid/' };
+  for (const [status, detail, expected] of [
+    [401, 'INVALID_API_KEY', 'INVALID_API_KEY'],
+    [401, 'API_KEY_INACTIVE', 'API_KEY_INACTIVE'],
+    [403, 'PERSONAL_WORKSPACE_REQUIRED', 'PERSONAL_WORKSPACE_REQUIRED'],
+    [403, { error_code: 'INSUFFICIENT_SCOPE' }, 'INSUFFICIENT_SCOPE'],
+    [401, secret, 'AUTH_CHECK_FAILED'],
+    [403, { error_code: secret }, 'AUTH_CHECK_FAILED'],
+  ]) {
+    await assert.rejects(verifyIdentity(credentials, { fetchImpl: async () => ({
+      status, json: async () => ({ detail }),
+    }) }), error => {
+      assert.equal(error.code, expected);
+      assert.ok(!error.message.includes(secret));
+      assert.ok(!error.message.includes('请重新创建'));
+      return true;
+    });
+  }
+});
+
+test('新旧完整Key均能核验个人身份，掩码与接口合同错误各自明确提示', async () => {
+  for (const key of ['reelpeat_' + 'a'.repeat(27), 'reelpeat_' + 'a'.repeat(64)]) {
+    const value = normalizeKey('Bearer ' + key);
+    const context = await verifyIdentity({ api_key: value, api_base_url: 'https://fixture.invalid/' }, {
+      fetchImpl: async (url, options) => {
+        assert.equal(options.headers.Authorization, 'Bearer ' + key);
+        assert.equal(options.headers['X-Workspace-Id'], undefined);
+        return { status: 200, json: async () => ({ code: 0, data: { account_id: 'fixture-A', workspace: 'personal' } }) };
+      },
+    });
+    assert.equal(context.workspace, 'personal');
+  }
+  for (const mask of ['reelpeat_…abcd', 'reelpeat_abc...def'])
+    assert.throws(() => normalizeKey(mask), { code: 'API_KEY_MASKED' });
+  for (const [workspace, expected] of [[undefined, 'CONTEXT_INVALID'], ['unknown', 'CONTEXT_INVALID'], ['team', 'PERSONAL_ACCOUNT_REQUIRED']])
+    await assert.rejects(verifyIdentity({ api_key: secret, api_base_url: 'https://fixture.invalid/' }, {
+      fetchImpl: async () => ({ status: 200, json: async () => ({ code: 0, data: { account_id: 'fixture-A', workspace } }) }),
+    }), { code: expected });
+});
+
+// 中文注释：用户提供工作台链接时，保存和重读必须始终指向同站真实API入口。
+test('工作台地址配置后请求根API，已有同站配置和账号绑定继续有效', async t => {
+  const f = await fixture(t), workbench = f.base + 'vorder/app';
+  const result = await saveCredentials({ ...f.options, 'api-base': workbench }, secret);
+  assert.equal(result.account_id, 'fixture-A');
+  const saved = await readJSON(f.config, { privateMode: true });
+  assert.equal(saved.api_base_url, f.base);
+  const loaded = await loadCredentials({ ...f.options, 'api-base': workbench + '/' });
+  assert.equal(loaded.api_base_url, f.base);
+  assert.equal((await session(f.options)).context.workspace, 'personal');
+  assert.deepEqual(f.requests.map(item => item.path), ['/api/open/v1/context', '/api/open/v1/context']);
+  // 中文注释：兼容历史文件中保存的工作台路径，不需要更换Key或绕过跨站绑定。
+  await atomicJSON(f.config, { ...saved, api_base_url: workbench });
+  assert.equal((await loadCredentials({ ...f.options, 'api-base': f.base })).api_base_url, f.base);
+  assert.equal((await loadCredentials({ ...f.options, 'api-base': 'https://other.invalid/' })).api_base_url, 'https://other.invalid/');
+});
+
+// 中文注释：用受控fetch核验默认及用户覆盖规则，不把合成Key发送到真实公网。
+test('新配置默认网关、用户显式网关优先，已有地址不被默认值覆盖', async t => {
+  const f = await fixture(t), destination = path.join(f.root, 'default.json'), calls = [];
+  const dependencies = { fetchImpl: async url => {
+    calls.push(url.href);
+    return { status: 200, json: async () => ({ code: 0, data: f.context() }) };
+  } };
+  assert.equal(normalizeBase(), 'https://www.realpeat.com/');
+  await saveCredentials({ config: destination }, secret, dependencies);
+  assert.equal((await readJSON(destination)).api_base_url, 'https://www.realpeat.com/');
+  assert.equal(calls[0], 'https://www.realpeat.com/api/open/v1/context');
+  await saveCredentials({ config: destination, 'api-base': 'https://custom.invalid/' }, secret, dependencies);
+  assert.equal((await readJSON(destination)).api_base_url, 'https://custom.invalid/');
+  assert.equal(calls[1], 'https://custom.invalid/api/open/v1/context');
+  await saveCredentials({ config: destination }, secret, dependencies);
+  assert.equal(calls[2], 'https://custom.invalid/api/open/v1/context');
+  assert.equal((await readJSON(destination)).api_base_url, 'https://custom.invalid/');
+  assert.equal((await loadCredentials(f.options)).api_base_url, f.base);
+  const before = await readFile(f.config, 'utf8');
+  const active = await session({ ...f.options, 'api-base': 'https://override.invalid/' }, dependencies);
+  assert.equal(active.credentials.api_base_url, 'https://override.invalid/');
+  assert.equal(calls.at(-1), 'https://override.invalid/api/open/v1/context');
+  assert.equal(await readFile(f.config, 'utf8'), before);
+  for (const value of ['', 'http://unsafe.invalid', 'https://user:password@unsafe.invalid/'])
+    assert.throws(() => normalizeBase(value), { code: 'INVALID_API_BASE' });
+  await assert.rejects(session({ ...f.options, 'api-base': 'https://override.invalid/' }, {
+    fetchImpl: async () => ({ status: 200, json: async () => ({ code: 0, data: { ...f.context(), account_id: 'other' } }) }),
+  }), { code: 'ACCOUNT_CHANGED' });
+  const run = path.join(f.root, 'old-run.json');
+  await atomicJSON(run, { schema_version: 1, account_id: 'fixture-A', api_base_url: f.base });
+  await assert.rejects(loadRun(run, active), { code: 'RUN_IDENTITY_MISMATCH' });
+});
+
+test('显式env模式也使用默认或用户提供的网关，不修改凭据文件', async () => {
+  const previous = process.env.REELPEAT_API_KEY;
+  process.env.REELPEAT_API_KEY = secret;
+  try {
+    assert.equal((await loadCredentials({ 'auth-source': 'env' })).api_base_url, 'https://www.realpeat.com/');
+    assert.equal((await loadCredentials({ 'auth-source': 'env', 'api-base': 'https://custom.invalid/' })).api_base_url, 'https://custom.invalid/');
+  } finally {
+    if (previous === undefined) delete process.env.REELPEAT_API_KEY;
+    else process.env.REELPEAT_API_KEY = previous;
+  }
 });

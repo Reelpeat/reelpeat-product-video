@@ -23,7 +23,7 @@ class PublicLayoutTest(unittest.TestCase):
             if reference.startswith(("https://", "http://", "#")):
                 continue
             self.assertTrue((ROOT / reference).is_file(), reference)
-        self.assertIn("https://3d-agent-skill.inner.xshadow-ai.com/", text)
+        self.assertIn("https://www.realpeat.com/", text)
         self.assertIn("不包含LICENSE", text)
         skill = ROOT / ".codex/skills/reelpeat-product-video"
         for file in skill.rglob("*"):

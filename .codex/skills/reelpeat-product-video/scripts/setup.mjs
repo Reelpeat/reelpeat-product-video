@@ -4,14 +4,15 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { atomicJSON, readJSON, fail, ClientError } from './local-files.mjs';
-import { configLocation, normalizeBase, normalizeKey, verifyIdentity, saveCredentials } from './credentials.mjs';
+import { configLocation, normalizeBase, configuredBase, normalizeKey, verifyIdentity, saveCredentials } from './credentials.mjs';
+import { DEFAULT_API_BASE } from './api-client.mjs';
 
 // 中文注释：仅维护公开获客入口；来源参数不含账号或凭据，登录后只回到本站个人Key管理。
-const ACCOUNT_URL = 'https://3d-agent-skill.inner.xshadow-ai.com/vorder/login?utm_source=skill&utm_medium=skill&utm_campaign=reelpeat_launch_202610&utm_content=first_setup&skill_id=reelpeat-product-video&skill_version=1.1.1&acq_id=b8317cf3a84243f090d727a650dce7ca&redirect=%2Fvorder%2Fapp%3Faccount_action%3Dapi-keys';
+const ACCOUNT_URL = DEFAULT_API_BASE + 'vorder/login?utm_source=skill&utm_medium=skill&utm_campaign=reelpeat_launch_202610&utm_content=first_setup&skill_id=reelpeat-product-video&skill_version=1.1.1&acq_id=b8317cf3a84243f090d727a650dce7ca&redirect=%2Fvorder%2Fapp%3Faccount_action%3Dapi-keys';
 
 export function accountEntry(apiBase) {
   // 中文注释：显式使用其他API环境时不展示本环境账户入口，避免配置错账号体系。
-  try { return !apiBase || new URL(apiBase).origin === new URL(ACCOUNT_URL).origin ? ACCOUNT_URL : null; }
+  try { return new URL(normalizeBase(apiBase)).origin === new URL(ACCOUNT_URL).origin ? ACCOUNT_URL : null; }
   catch { return null; }
 }
 
@@ -49,6 +50,8 @@ function equalNonce(value, expected) {
 
 // 中文注释：配置页不带外部资源，不记录输入，不将Key放进URL或输出。
 export async function startSetupServer(state, setupFile, { fetchImpl = fetch, ttlMs = 300000 } = {}) {
+  // 中文注释：整次网页验证和保存固定同一网关，避免期间配置变化造成校验、保存落到不同站点。
+  const apiBase = await configuredBase(state.options);
   const nonce = randomBytes(32).toString('hex');
   let busy = false, finished = false, pendingKey = '', revision = '';
   const server = createServer(async (request, response) => {
@@ -64,7 +67,7 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
     }
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
-      response.end(html(nonce, state.options['api-base'])); return;
+      response.end(html(nonce, apiBase)); return;
     }
     if (request.method !== 'POST' || request.headers.origin !== origin ||
       !request.headers['content-type']?.startsWith('application/x-www-form-urlencoded')) {
@@ -79,7 +82,7 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
       if (form.get('action') !== 'save') {
         pendingKey = normalizeKey(form.get('key'));
         const context = await verifyIdentity({ api_key: pendingKey,
-          api_base_url: normalizeBase(state.options['api-base']) }, { fetchImpl });
+          api_base_url: apiBase }, { fetchImpl });
         revision = randomBytes(24).toString('hex');
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end(confirmation(nonce, revision, context, configLocation(state.options).file));
@@ -87,7 +90,7 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
       }
       if (!pendingKey || !equalNonce(form.get('confirmation_id'), revision))
         fail('KEY_NOT_VERIFIED', '请先验证Key并核对当前账号。');
-      const saved = await saveCredentials(state.options, pendingKey, { fetchImpl });
+      const saved = await saveCredentials({ ...state.options, 'api-base': apiBase }, pendingKey, { fetchImpl });
       await atomicJSON(setupFile, { ...state, status: 'completed', ...saved });
       finished = true; pendingKey = '';
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -121,7 +124,7 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
 export async function launchSetup(options) {
   const location = configLocation(options);
   if (location.source === 'env') fail('ENV_SAVE_UNSUPPORTED', 'env模式请通过宿主secret注入，不启动本机保存。');
-  normalizeBase(options['api-base']);
+  options = { ...options, 'api-base': await configuredBase(options, location) };
   const session = randomUUID();
   const setupFile = path.join(path.dirname(location.file), 'setup-' + session + '.json');
   const state = { schema_version: 1, session_id: session, status: 'starting',

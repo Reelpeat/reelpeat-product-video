@@ -32,6 +32,7 @@ test('首次接入保留推广参数及固定Key回跳，不为其他环境或�
   const help = await cli(['--help']);
   const url = new URL(help.value.data.account_url);
   assert.equal(url.protocol, 'https:');
+  assert.equal(url.origin, 'https://www.realpeat.com');
   assert.equal(url.pathname, '/vorder/login');
   assert.match(url.searchParams.get('acq_id'), /^[a-f0-9]{32}$/);
   for (const [key, value] of Object.entries({ utm_source: 'skill', utm_medium: 'skill',
@@ -43,6 +44,7 @@ test('首次接入保留推广参数及固定Key回跳，不为其他环境或�
   assert.equal(missing.value.account_url, url.href);
   assert.ok(!missing.stdout.includes('temporary-url-omitted'));
   assert.equal(accountEntry('https://another-environment.invalid/'), null);
+  assert.equal((await cli(['--help', '--api-base', f.base])).value.data.account_url, null);
   assert.equal(accountEntry('invalid-api'), null);
   const mismatch = await cli(['doctor', '--config', path.join(f.root, 'missing.json'), '--api-base', f.base]);
   assert.equal(mismatch.value.account_url, null);
@@ -258,7 +260,7 @@ test('配置文件权限错误与缺配置分别返回error和setup_required', {
 });
 
 // 中文注释：POSIX伪终端验证真实TTY回显与取消；Python仅为测试夹具，客户端没有该依赖。
-async function terminalCLI(args, cancel = false) {
+async function terminalCLI(args, cancel = false, input = secret + '\n') {
   const script = String.raw`
 import os,pty,select,subprocess,sys,json,time,errno
 data=json.load(sys.stdin)
@@ -278,7 +280,7 @@ try:
             if not chunk: break
             output+=chunk
             if not sent and b'API Key' in output:
-                os.write(master,b'\x03' if data['cancel'] else data['key'].encode()+b'\n')
+                os.write(master,b'\x03' if data['cancel'] else data['input'].encode())
                 sent=True
         elif child.poll() is not None: break
     # 中文注释：PTY可先于进程退出关闭，EOF后仍等待退出，避免将正常收尾误报超时。
@@ -299,7 +301,7 @@ finally:
       if (code) reject(new Error('伪终端夹具失败：' + stderr));
       else { try { resolve(JSON.parse(stdout)); } catch (error) { reject(error); } }
     });
-    child.stdin.end(JSON.stringify({ args: [process.execPath, entry, ...args], key: secret, cancel }));
+    child.stdin.end(JSON.stringify({ args: [process.execPath, entry, ...args], input, cancel }));
   });
 }
 
@@ -339,4 +341,62 @@ test('打包源目录不能存凭据，环境模式不接受静默文件来源',
     error => error.code === 'SKILL_CREDENTIAL_FORBIDDEN');
   assert.throws(() => configLocation({ config: f.config, 'auth-source': 'env' }),
     error => error.code === 'AMBIGUOUS_CONFIG');
+});
+
+// 中文注释：真实PTY比较macOS终端与Agent stdin初始化，覆盖粘贴控制序列和新旧Key格式。
+test('终端与Agent初始化保存相同完整Key，短Key、旧Key及粘贴换行不截断', { skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t);
+  for (const key of ['reelpeat_' + 'A_-b09'.repeat(4) + 'abc', 'reelpeat_' + 'ab09'.repeat(16)]) {
+    const args = ['auth', 'set', '--api-base', f.base + 'vorder/app', '--config', f.config];
+    for (const input of [key + '\r', key + '\r\n', '\x1b[200~' + key + '\x1b[201~\r',
+      '\x1b[200~' + key + '\n\x1b[201~\r', 'Bearer ' + key + '\n']) {
+      const terminal = await terminalCLI(args, false, input);
+      assert.equal(terminal.code, 0);
+      assert.ok(!terminal.output.includes(key));
+      const terminalConfig = await readJSON(f.config, { privateMode: true });
+      assert.equal(terminalConfig.api_key, key);
+      assert.equal(terminalConfig.api_base_url, f.base);
+      const agent = await cli([...args, '--stdin'], { input: key + '\n' });
+      assert.equal(agent.code, 0);
+      assert.deepEqual(await readJSON(f.config, { privateMode: true }), terminalConfig);
+      const doctor = await cli(['doctor', '--config', f.config], { cwd: path.dirname(f.root) });
+      assert.equal(doctor.code, 0);
+      assert.equal(doctor.value.account_id, 'fixture-A');
+    }
+  }
+  assert.ok(f.requests.every(request => ['/api/open/v1/context', '/api/open/v1/account/balance'].includes(request.path)));
+  assert.ok(f.requests.every(request => request.method === 'GET'));
+});
+
+test('终端初始化被网关拒绝时不覆盖Agent已保存的有效配置', { skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t), rejected = await fixture(t, { authFailure: true });
+  const before = await readFile(f.config, 'utf8');
+  const terminal = await terminalCLI(['auth', 'set', '--api-base', rejected.base, '--config', f.config]);
+  assert.equal(terminal.code, 1);
+  assert.match(terminal.output, /AUTH_CHECK_FAILED/);
+  assert.ok(!terminal.output.includes(secret));
+  assert.equal(await readFile(f.config, 'utf8'), before);
+});
+
+// 中文注释：默认网关的网页初始化全程使用受控fetch，验证与保存均不访问真实公网。
+test('临时网页省略网关时按默认站点验证并保存', async t => {
+  const f = await fixture(t), destination = path.join(f.root, 'default-web.json'), calls = [];
+  const state = { schema_version: 1, session_id: 'default-gateway', options: { config: destination } };
+  const { server, setup_url } = await startSetupServer(state, path.join(f.root, 'default-setup.json'), {
+    fetchImpl: async url => {
+      calls.push(url.href);
+      return { status: 200, json: async () => ({ code: 0, data: f.context() }) };
+    },
+  });
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const html = await (await fetch(setup_url)).text();
+  assert.ok(html.includes('https://www.realpeat.com/vorder/login?'));
+  const csrf = html.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  const post = form => fetch(setup_url, { method: 'POST', headers: { Origin: new URL(setup_url).origin }, body: new URLSearchParams(form) });
+  const checked = await post({ csrf, key: secret });
+  assert.equal(checked.status, 200);
+  const confirmation = (await checked.text()).match(/name="confirmation_id" value="([a-f0-9]+)"/)[1];
+  assert.equal((await post({ csrf, action: 'save', confirmation_id: confirmation })).status, 200);
+  assert.deepEqual(calls, Array(2).fill('https://www.realpeat.com/api/open/v1/context'));
+  assert.equal((await readJSON(destination)).api_base_url, 'https://www.realpeat.com/');
 });
