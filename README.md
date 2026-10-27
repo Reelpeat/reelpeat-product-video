@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.1**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.2**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -49,6 +49,8 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-ba
 Agent或受控进程可用auth set --stdin，通过工具的标准输入传入原始Key后结束输入；不要改成--key或echo明文Key的shell命令。临时网页仍用上方auth setup启动，用户按“验证账号→确认保存”完成，不是只点验证。Key从已核验的Reelpeat账户入口创建，使用doctor或--help返回的完整account_url引导注册/登录；已有账号不用重复注册，充值仍走已核验账户入口。
 
 保存结果返回config_file和绑定该路径的doctor下一步，网页可用auth status --setup-file查询；随后显式doctor --config核验相同绝对路径与执行环境。不会把鉴权/权限错误统一当作缺配置，不要求重复创建Key。
+
+任一方式未成功时，助手会先说明具体错误或未知点，再介绍并引导其他实际可用方式，给出推荐理由、真实网页链接或已补齐路径/网关的完整命令，以及完成后的检查方法。网页打不开可改用终端隐藏输入或Agent代配；Agent没有输入工具可改为用户网页/终端。已保存先核对原路径，权限受限先说明可选存储范围；失效Key、网络不通或缺Node须处理共同前置，不会只换入口反复重试。用户已有明确选择与输入时沿用，不要求重发Key，也不自动改变存储位置。
 
 默认保存在用户目录 `.reelpeat/credentials.json`，网关、Key和账号绑定在一起。文件每次命令重新读取，更换Key无需重启Agent。macOS/Linux目录0700、文件0600；普通文件是明文，不能防同一用户的其他进程读取。显式项目模式及宿主secret用法见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。云端localhost不等于用户电脑，没有可达配置页时使用Agent代配、受控secret或用户终端方式，并核实实际保存环境与权限。
 
