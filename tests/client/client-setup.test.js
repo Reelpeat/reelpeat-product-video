@@ -152,8 +152,15 @@ test('失败配置保留旧文件；会话自然超时关闭，不留常驻进�
   assert.equal(response.status, 400);
   assert.match(await response.text(), /AUTH_CHECK_FAILED/);
   assert.equal(await readFile(f.config, 'utf8'), before);
-  await new Promise(resolve => setTimeout(resolve, 220));
-  assert.equal((await readJSON(setupFile)).status, 'expired');
+  // 中文注释：过期状态异步落盘，等待实际条件而非固定睡眠，避免CI磁盘调度造成偶发失败。
+  const deadline = performance.now() + 2000;
+  let status;
+  do {
+    status = (await readJSON(setupFile)).status;
+    if (status === 'expired') break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  } while (performance.now() < deadline);
+  assert.equal(status, 'expired');
   assert.equal(server.listening, false);
 });
 
