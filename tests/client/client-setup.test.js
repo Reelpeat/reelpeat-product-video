@@ -231,7 +231,9 @@ try:
                 os.write(master,b'\x03' if data['cancel'] else data['key'].encode()+b'\n')
                 sent=True
         elif child.poll() is not None: break
-    if child.poll() is None: raise RuntimeError('Terminal timeout')
+    # 中文注释：PTY可先于进程退出关闭，EOF后仍等待退出，避免将正常收尾误报超时。
+    try: child.wait(timeout=max(0.1,deadline-time.monotonic()))
+    except subprocess.TimeoutExpired: raise RuntimeError('Terminal timeout')
     print(json.dumps({'code':child.returncode,'sent':sent,'output':output.decode('utf-8','replace')}))
 finally:
     if child.poll() is None: child.kill(); child.wait()
