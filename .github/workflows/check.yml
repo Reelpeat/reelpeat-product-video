@@ -27,8 +27,23 @@ jobs:
       - name: Install packaging dependency
         run: python -m pip install -r requirements-dev.txt
       - name: Test client with synthetic loopback service
-        # 中文注释：同时保留文本日志与逐项失败注释，公开检查可定位错误，无需读取登录凭据。
-        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=github --test-reporter-destination=stdout tests/client/*.test.js
+        # 中文注释：保留文本日志并输出标准JUnit，供失败步骤生成可公开读取的检查注释。
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=client-results.xml tests/client/*.test.js
+      - name: Annotate failed client tests
+        if: failure()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          # 中文注释：仅处理合成测试结果；转义工作流命令数据，保留原测试失败状态。
+          report = Path('client-results.xml')
+          if report.exists():
+              for case in ET.parse(report).iter('testcase'):
+                  for failure in case.findall('failure'):
+                      message = (case.get('name', '') + '\n' + ''.join(failure.itertext()))[:6000]
+                      message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                      print('::error title=Reelpeat client test failed::' + message)
+          PY
       - name: Test independent packages and public layout
         run: python -m unittest discover -s scripts/tests -p 'test_*.py' -v
       - name: Build Codex package
