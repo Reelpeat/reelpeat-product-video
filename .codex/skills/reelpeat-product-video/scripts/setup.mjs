@@ -54,7 +54,9 @@ export async function startSetupServer(state, setupFile, { fetchImpl = fetch, tt
   const server = createServer(async (request, response) => {
     const origin = 'http://127.0.0.1:' + server.address().port;
     response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Referrer-Policy', 'no-referrer');
+    // 中文注释：保留同源表单的Origin，跨站不发送Referer；所有拒绝分支也明确使用UTF-8。
+    response.setHeader('Referrer-Policy', 'same-origin');
+    response.setHeader('Content-Type', 'text/plain; charset=utf-8');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Content-Security-Policy', "default-src 'none'; form-action 'self'; frame-ancestors 'none'");
     if (request.headers.host !== new URL(origin).host || request.url !== '/setup/' + state.session_id) {

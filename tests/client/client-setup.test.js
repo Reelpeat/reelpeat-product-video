@@ -71,9 +71,43 @@ test('本机配置页与宿主使用相同入口，不请求外部资源或放�
 });
 
 // 中文注释：配置UI只通过隔离HTTP验证安全和保存行为，不使用用户真实Key。
+test('本机配置页所有拒绝分支显式声明UTF-8，中文错误不依赖浏览器猜编码', async t => {
+  const f = await fixture(t);
+  const { server, setup_url: url } = await startSetupServer({ session_id: 'utf8-rejection',
+    options: { config: f.config, 'api-base': f.base } }, path.join(f.root, 'utf8-session.json'));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const origin = new URL(url).origin;
+  const cases = [
+    { headers: { Host: 'evil.invalid' }, text: '拒绝未授权的本机配置访问' },
+    { url: origin + '/wrong-path', text: '拒绝未授权的本机配置访问' },
+    { method: 'PUT', text: '请从本机配置页面提交' },
+    { method: 'POST', headers: { Origin: 'https://evil.invalid' }, text: '请从本机配置页面提交' },
+    { method: 'POST', headers: { Origin: 'null' }, text: '请从本机配置页面提交' },
+    { method: 'POST', headers: { Origin: origin }, text: '请从本机配置页面提交' },
+    { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'csrf=wrong', text: '配置会话无效或已完成' },
+  ];
+  for (const item of cases) {
+    const result = await new Promise((resolve, reject) => {
+      const request = httpRequest(item.url || url, { method: item.method || 'GET', headers: item.headers }, response => {
+        const chunks = [];
+        response.on('data', chunk => chunks.push(chunk));
+        response.on('end', () => resolve({ status: response.statusCode,
+          type: response.headers['content-type'], body: Buffer.concat(chunks).toString('utf8') }));
+      });
+      request.on('error', reject); request.end(item.body);
+    });
+    assert.equal(result.status, 403);
+    assert.equal(result.type, 'text/plain; charset=utf-8', item.text);
+    assert.equal(result.body, item.text);
+  }
+  assert.equal(f.requests.length, 0);
+});
+
 test('本机配置页校验Host/Origin/CSRF，仅保存成功一次且无secret输出', async t => {
   const f = await fixture(t);
-  const destination = path.join(f.root, 'new private', 'credentials.json');
+  // 中文注释：中文目录覆盖macOS保存回执的实际显示与重读路径。
+  const destination = path.join(f.root, '中文 私有目录', '个人凭据.json');
   const setupFile = path.join(f.root, 'setup private', 'session.json');
   const state = { schema_version: 1, session_id: 'fixture-session', status: 'starting',
     options: { config: destination, 'api-base': f.base }, expires_at: new Date(Date.now() + 300000).toISOString() };
@@ -82,6 +116,8 @@ test('本机配置页校验Host/Origin/CSRF，仅保存成功一次且无secret�
   const origin = new URL(url).origin;
   const page = await fetch(url);
   assert.equal(page.headers.get('cache-control'), 'no-store');
+  // 中文注释：no-referrer会让浏览器原生表单把Origin发成null，导致自己的保存请求被拒绝。
+  assert.equal(page.headers.get('referrer-policy'), 'same-origin');
   assert.ok(page.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
   const body = await page.text(), csrf = body.match(/name="csrf" value="([a-f0-9]+)"/)[1];
   // 中文注释：原生fetch可能忽略自定义Host，直接HTTP才能真实验证该边界。
@@ -99,6 +135,8 @@ test('本机配置页校验Host/Origin/CSRF，仅保存成功一次且无secret�
   await assert.rejects(readFile(destination));
   const good = await send(csrf, origin);
   const confirmedPage = await good.text();
+  assert.equal(good.headers.get('content-type'), 'text/html; charset=utf-8');
+  assert.match(confirmedPage, /个人账号/);
   assert.equal(good.status, 200); assert.ok(!confirmedPage.includes(secret));
   assert.ok(confirmedPage.includes('fixture-A'));
   await assert.rejects(readFile(destination));
@@ -106,6 +144,11 @@ test('本机配置页校验Host/Origin/CSRF，仅保存成功一次且无secret�
   const savedResponse = await fetch(url, { method: 'POST', headers: { Origin: origin },
     body: new URLSearchParams({ csrf, action: 'save', confirmation_id: confirmationId }) });
   assert.equal(savedResponse.status, 200);
+  assert.equal(savedResponse.headers.get('content-type'), 'text/html; charset=utf-8');
+  const savedPage = await savedResponse.text();
+  assert.match(savedPage, /已验证并保存/);
+  assert.ok(savedPage.includes(destination));
+  assert.ok(!savedPage.includes(secret));
   const saved = await readJSON(destination, { privateMode: true });
   assert.ok(saved.api_key === secret);
   assert.equal(saved.account_id, 'fixture-A');
