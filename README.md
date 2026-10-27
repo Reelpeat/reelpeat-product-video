@@ -2,11 +2,11 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.0**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.1**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
-- Node.js 22或更新版本，本次合同验证目标为22/24。
+- 最低Node.js 18.3.0；不限制版本上限，不绑定指定主版本或LTS编号。已有满足要求的Node可直接使用，无需升降级或另装运行时。
 - 宿主能加载 Skill、执行固定 Node 脚本、联网并读写本次授权工作区。
 - 宿主需要实际图像查看能力；无法看图或播放视频时必须说明核验限制。
 - 运行客户端无需 npm install、Python、MCP SDK或常驻本机连接器。
@@ -90,7 +90,7 @@ node --test tests/client/*.test.js
 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
 ```
 
-GitHub工作流：[check.yml](.github/workflows/check.yml)。push、pull_request和手动触发时，Ubuntu分别使用Node22/24运行同一测试和打包命令；Actions固定提交SHA、只读仓库权限，不注入真实Key，也不自动创建Release或推送代码。托管执行结果以仓库Actions页面为准，本地测试通过不能代替托管执行状态。
+GitHub工作流：[check.yml](.github/workflows/check.yml)。push、pull_request和手动触发时，Ubuntu在选取的Node测试样本上运行同一测试和打包命令，测试样本不构成用户安装版本白名单；Actions固定提交SHA、只读仓库权限，不注入真实Key，也不自动创建Release或推送代码。托管执行结果以仓库Actions页面为准，本地测试通过不能代替托管执行状态。
 
 ## 本地打包
 

@@ -2,7 +2,7 @@
 name: reelpeat-product-video
 description: 将商品链接制作成带货短视频。使用随包 Reelpeat Node.js 客户端获取商品事实和图片，由宿主 Agent 分析卖点、设计脚本并按正式报价授权生成视频；支持表格批次一次确认、规则授权和原任务续接，兼容 Reelpeat MCP。适用于商品视频、链接成片和商品表批量创作。
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
   author: "Mint"
   display_name: "商品链接生成带货视频"
   display_name_en: "Product Link to Sales Video"
@@ -18,7 +18,7 @@ metadata:
 
 ## 连接与能力检查
 
-1. 默认执行本 Skill `scripts/reelpeat.mjs` 官方 Node.js 客户端，先读[客户端执行合同](references/client-usage.md)，定位当前已加载的 Skill 根目录，在实际执行环境运行 `--help` 和 `doctor`。客户端随包，无需 MCP 或 npm 安装。只有用户明确选择且宿主已提供配套八个 `reelpeat_*` 工具时才使用 MCP 兼容入口，先读[工具合同](references/tool-contracts.md)。单个写操作固定入口和原请求身份，不因异常切换入口重提；不得临时编写 HTTP、读取项目内部接口或替换官方脚本。
+1. 默认执行本 Skill `scripts/reelpeat.mjs` 官方 Node.js 客户端，先读[客户端执行合同](references/client-usage.md)，定位当前已加载的 Skill 根目录，在实际执行环境运行 `--help` 和 `doctor`。客户端随包，无需 MCP 或 npm 安装。运行时只要求最低Node.js 18.3.0，不限制版本上限、不绑定指定主版本；已有满足要求的Node直接复用，不因CI测试样本要求升降级。只有用户明确选择且宿主已提供配套八个 `reelpeat_*` 工具时才使用 MCP 兼容入口，先读[工具合同](references/tool-contracts.md)。单个写操作固定入口和原请求身份，不因异常切换入口重提；不得临时编写 HTTP、读取项目内部接口或替换官方脚本。
 2. 没有配置时保留商品链接与要求，将客户端返回的 `account_url` 以“注册／登录 Reelpeat，创建个人 Key”可点击链接交给用户，完整保留来源参数；链接登录后回到个人 Key 管理。已有账号直接登录，无需重复注册；没有 Key 不等于没有账号。`--help` 的 `data.account_url` 与本机配置页使用同一固定入口，不自行拼接、改写来源或猜测安装市场。显式 API 环境与入口不一致而未返回链接时，先核验该环境的账户入口，不混用账号体系。**默认允许用户将个人Key直接发给Agent代配，引导时同时提供“Agent代配、临时网页、用户终端命令”三种选择**，具体方法先读[客户端配置合同](references/client-usage.md)。简短说明聊天或工具记录可能保留输入，由用户选择；已有明确选择直接沿用，不因旧版“不接收聊天Key”规则拒绝或重复确认。Agent代配只通过官方auth set的隐藏终端或受控stdin输入，校验已核验API和个人账号，再保存并按返回的绝对config路径核验。Key不复述、不放进命令参数、URL、报告、进度文件或发布包；不把含Key文本拼进shell命令，不扫描其他Agent全局配置。客户端默认用户级文件，项目模式须明确选择；每次命令重新读取，换Key不必重启Agent。云端回环页面不可达时明确限制，不把云端localhost当用户电脑；没有可用执行/安全输入方式时交给用户网页或终端配置。无效Key、权限错误或网络失败保留具体错误，不误报缺配置或引导重复注册。
 3. 调用 `reelpeat_get_context`，核对 `account_id`、个人空间和已开放能力；`capabilities` 是能力名称，`capability_details` 给出对应的平台、规格和收费政策。再查询 `reelpeat_get_balance`。缺 `account:read` 时说明无法读取余额，不猜测数值；零余额不等于连接失败，也不妨碍有权限的历史查询。
 4. **能力清单为空或缺少平台/规格/配套收费政策时，不发起新的解析、准备或生成。** 可以查已有任务、根据用户已提供并确认的资料设计草案，明确尚未执行。不要把空清单理解为全部开放，不从历史测试价格猜 SKU。只缺图片能力而原图够用时可走已开放的视频路径。

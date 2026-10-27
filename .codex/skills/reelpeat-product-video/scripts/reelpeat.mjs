@@ -27,7 +27,8 @@ const help = {
     '--config <明确凭据文件>；--auth-source env --api-base <已核验API> 显式宿主secret模式',
     'auth set --api-base <API地址>：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
     'auth setup --api-base <API地址>：临时网页；不接受--key，不输出凭据，不修改Agent全局配置'],
-  runtime: ['--work-dir <工作区> --output-dir <运行输出目录>',
+  runtime: ['最低Node.js 18.3.0；不限制版本上限，不要求切换到指定主版本',
+    '--work-dir <工作区> --output-dir <运行输出目录>',
     '--wait-seconds <0～60，默认20>；窗口耗尽后按next_action续接'],
   exit_codes: { 0: '命令职责完成；仍须检查result_type和业务状态', 1: '配置/参数/接口/业务错误',
     2: '等待窗口耗尽，可恢复；禁止重做', 3: '任务成功但媒体交付不完整，只重试下载' },
@@ -104,8 +105,10 @@ export async function main(argv = process.argv.slice(2)) {
   if (positionals.length > (positionals[0] === 'auth' ? 2 : 1))
     fail('UNEXPECTED_POSITIONAL', '仅支持固定操作；业务参数请使用JSON文件或stdin。');
   const operation = positionals[0];
-  if (Number(process.versions.node.split('.')[0]) < 22)
-    fail('NODE_VERSION_UNSUPPORTED', '需要Node.js 22或更新版本；首版隔离验证22/24 LTS。');
+  // 中文注释：只检查实际API所需的最低版本，不将测试样本当安装白名单。
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  if (major < 18 || (major === 18 && minor < 3))
+    fail('NODE_VERSION_UNSUPPORTED', '最低需要Node.js 18.3.0；更高版本可直接使用，无需切换指定版本。');
   if (operation === 'doctor') return boundedOutput(await doctor(options), options);
   if (operation === 'setup-server') {
     const file = path.resolve(options['setup-file'] || '');

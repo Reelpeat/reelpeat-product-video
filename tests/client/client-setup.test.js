@@ -9,6 +9,23 @@ import { accountEntry, startSetupServer } from '../../.codex/skills/reelpeat-pro
 import { saveCredentials } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
 import { readJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
 import { fixture, cli, secret, entry } from './client-fixture.mjs';
+import { main } from '../../.codex/skills/reelpeat-product-video/scripts/reelpeat.mjs';
+
+test('只拦截低于最低版本的运行时，不限制更高版本或指定主版本', async t => {
+  const f = await fixture(t), original = Object.getOwnPropertyDescriptor(process.versions, 'node');
+  try {
+    // 中文注释：仅模拟版本元数据以核对门禁；真实最低版另跑隔离主流程。
+    for (const version of ['18.3.0', '18.20.0', '20.0.0', '25.0.0', '100.0.0']) {
+      Object.defineProperty(process.versions, 'node', { ...original, value: version });
+      const result = await main(['doctor', '--config', path.join(f.root, 'unconfigured.json')]);
+      assert.equal(result.error.code, 'SETUP_REQUIRED');
+    }
+    for (const version of ['16.20.0', '18.0.0', '18.2.9']) {
+      Object.defineProperty(process.versions, 'node', { ...original, value: version });
+      await assert.rejects(main(['doctor', '--config', f.config]), { code: 'NODE_VERSION_UNSUPPORTED' });
+    }
+  } finally { Object.defineProperty(process.versions, 'node', original); }
+});
 
 test('首次接入保留推广参数及固定Key回跳，不为其他环境或无效Key引导注册', async t => {
   const f = await fixture(t);
