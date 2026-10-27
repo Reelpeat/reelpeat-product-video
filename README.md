@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.2**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.3**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -66,7 +66,7 @@ doctor仅检查身份、能力及有权限时的余额，不解析商品、不�
 
 > 使用 reelpeat-product-video，将这个商品链接制作成马来西亚市场的带货视频。先解析商品、实际查看选定颜色原图并给出创意与正式报价，先不要提交付费生成。
 
-宿主依次执行resolve、download并实际看图、prepare，停在quote_ready。默认一次展示“分镜与口播＋所选参考图预览＋规格与正式报价”，用户确认后才调用generate-video；已有明确覆盖本次输入、数量与金额的授权可以沿用。用户有明确要求时以用户要求为准，例如静音不额外补口播，明确不需要预览时按要求简化展示；省略展示不自动授权未知费用。所有业务参数通过UTF-8 JSON文件或stdin传入，详细阶段、参数和授权格式见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。价格、余额及规格来自本次正式API响应，示例不保证平台、模型或价格恒定可用。
+单条依次执行resolve、download并实际看图，**获取商品后先在用户可见回复中展示商品信息及至少一张真实商品图**，再设计剧本和prepare，停在quote_ready。首次出图不能推迟到报价或生成后；图片编号、JSON、路径文字和Agent自己看图不能代替向用户展示。不能内嵌时使用宿主实际可用的图片附件/用户可达预览，仍无法查看则说明阻塞并保留原任务，暂停单条后续准备/生成，不额外付费生图。默认一次展示“分镜与口播＋所选参考图预览＋规格与正式报价”，用户确认后才调用generate-video；已有明确覆盖本次输入、数量与金额的授权可以沿用。用户有明确要求时以用户要求为准，例如静音不额外补口播，首轮已展示且最终选图相同、明确不需重复时可引用图号；省略展示不自动授权未知费用。所有业务参数通过UTF-8 JSON文件或stdin传入，详细阶段、参数和授权格式见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。价格、余额及规格来自本次正式API响应，示例不保证平台、模型或价格恒定可用。
 
 - `accepted`只代表受理或当前命令完成职责，不等于成片。
 - 退出码2表示等待窗口耗尽，用原恢复文件resume；不能新建任务碰运气。
