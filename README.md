@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.6**。仓库：[navyran/reelpeat-product-video](https://github.com/navyran/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.3.6**。仓库：[Reelpeat/reelpeat-product-video](https://github.com/Reelpeat/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -16,7 +16,7 @@ Codex项目使用时，将本目录中的完整 `.codex/skills/reelpeat-product-
 可先获取源码：
 
 ```bash
-git clone https://github.com/navyran/reelpeat-product-video.git
+git clone https://github.com/Reelpeat/reelpeat-product-video.git
 cd reelpeat-product-video
 ```
 

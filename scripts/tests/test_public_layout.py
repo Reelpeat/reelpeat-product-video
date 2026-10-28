@@ -17,7 +17,8 @@ class PublicLayoutTest(unittest.TestCase):
 
     def test_readme_links_and_release_boundaries(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("https://github.com/navyran/reelpeat-product-video", text)
+        # 中文注释：导出后的安装说明应指向新仓库，避免后续发布恢复旧地址。
+        self.assertIn("https://github.com/Reelpeat/reelpeat-product-video", text)
         for reference in re.findall(r"\]\(([^)]+)\)", text):
             # 中文注释：仓库外部链接不当成本地文件；随包资源链接仍必须可解析。
             if reference.startswith(("https://", "http://", "#")):
