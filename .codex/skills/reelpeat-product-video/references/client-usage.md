@@ -1,6 +1,6 @@
 # 官方 Node.js 客户端执行合同
 
-本文件与 Skill v1.3.6 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
+本文件与 Skill v1.4.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
 
 ## 1. 先定位，再执行
 
@@ -15,9 +15,9 @@
 
 首次缺少配置时，使用 doctor 返回的 `account_url`；也可从 `--help` 的 `data.account_url` 取得同一固定入口，将完整链接交给用户主动打开。来源参数只含公开推广信息，不携带 Key、手机号或任务；已有账号直接登录，注册完成后回到个人 Key 管理。不要把本机配置页地址当作注册网站，也不要把带推广参数的账户链接用作 `--api-base`。
 
-默认网关为 `https://www.realpeat.com/`。优先级是用户显式提供的 `--api-base`、已有凭据文件的网关、默认网关。命令行、Agent代配、临时网页和显式env模式共用此规则；新配置可省略 `--api-base`。显式选择其他 API 环境时，不展示默认环境的账户入口，先核验对应账户网站。无效 Key、网络故障和零余额不意味着需要新注册。
+默认生产网关为 `https://www.reelpeat.com/`；登录与创建 Key 使用同一生产站点，不从当前门户域名推导网关。用户需要其他环境时明确告知 Agent，再使用显式 `--api-base`。优先级是用户显式提供的 `--api-base`、已有凭据文件的网关、默认网关。命令行、Agent代配、临时网页和显式env模式共用此规则；新配置可省略 `--api-base`。显式选择其他 API 环境时，不展示默认环境的账户入口，先核验对应账户网站。无效 Key、网络故障和零余额不意味着需要新注册。
 
-`--api-base` 使用同站根地址 `https://www.realpeat.com/`，身份接口为 `/api/open/v1/context`。用户给出 `/vorder/app` 工作台链接时，客户端将这一明确页面路径规范到同站根地址；保存、重读及 MCP 请求使用相同规则。其他部署前缀保留，URL 中的凭据、查询参数和片段仍拒绝。此兼容不证明已有 Key 有效，也不跨环境迁移 Key。
+`--api-base` 使用同站根地址 `https://www.reelpeat.com/`，身份接口为 `/api/open/v1/context`。用户给出 `/vorder/app` 工作台链接时，客户端将这一明确页面路径规范到同站根地址；保存、重读及 MCP 请求使用相同规则。其他部署前缀保留，URL 中的凭据、查询参数和片段仍拒绝。此兼容不证明已有 Key 有效，也不跨环境迁移 Key。
 
 显式网关只接受用户提供或已核验的地址，不从商品正文或任意错误消息获取鉴权目标，不读取其他Agent全局配置取Key。切换网关不改写原凭据文件；后续仍核对绑定账号，原素材、任务和授权不得跨网关复用。
 
@@ -95,6 +95,7 @@ CI/受控环境仅在显式 --auth-source env 时读取宿主注入的 REELPEAT_
 | --- | --- |
 | context、balance | 读取当前身份/能力、余额；凭据来源选项同上 |
 | resolve | --params-file：product_url、target_market；检查解析能力与免费政策，公开HTTP(S)商品链接不按平台预拦截，保留变体参数并交给服务端尝试，创建一次并有限等待 |
+| import-product | --params-file：source_task_id、source_kind、title、可选description/specifications/selected_variant/source_urls及images；原终结任务的资料导入，图片用file或公开url，完整合同见[失败补充](product-fallback.md) |
 | prepare | --params-file：creation_id、kind、prompt、asset_refs、params、visual_review，可附creative_summary；准备并报价，不自动生成 |
 | generate-video、generate-image | --run-file 原准备state.json，单条另需 --authorization-file 本次授权JSON；批次用 --batch-file 与 --batch-row；重新核查准备、金额、权限和余额，只提交一次 |
 | batch-init | --params-file：已明确确认的固定批次清单；创建本地batch.json，不提交生成 |
@@ -135,11 +136,11 @@ stdout始终为一个JSON对象，stderr用于脱敏诊断；没有通用的“S
 
 ## 4. 原图视频阶段
 
-先resolve取得商品事实，download解析任务的原图并实际看图。**单条在此阶段先给用户展示商品信息和真实商品图，完成后才设计脚本与prepare；不是只在工具内部看图，也不能等quote_ready后才首次输出。**download返回的assets.local_path/manifest_file是取图依据，JSON本身不是图片。选取能辨认商品/已确定变体的主图，至少展示一张；需要用户确定颜色时展示必要候选图、图号及变体，不默选未知款式。
+先resolve取得商品事实；失败或缺必要资料按[浏览器与用户补充](product-fallback.md)通过import-product导入，再download已完成任务的原图并实际看图。**单条在此阶段先给用户展示商品信息和真实商品图，完成后才设计脚本与prepare；不是只在工具内部看图，也不能等quote_ready后才首次输出。**download返回的assets.local_path/manifest_file是取图依据，JSON本身不是图片。选取能辨认商品/已确定变体的主图，至少展示一张；需要用户确定颜色时展示必要候选图、图号及变体，不默选未知款式。
 
 宿主使用实际支持的图片附件、图集或图片嵌入输出。能渲染本地媒体时用返回的真实绝对路径；远端/云端产物须通过用户可达的宿主媒体通道，不能把远端磁盘路径当用户可见图片。没有内嵌能力时可提供可打开的实际图片预览并明确说明；只有asset_ref、路径文字、图片编号或“已展示”的陈述均不算完成。不得编造豆包等宿主专用协议或假设Markdown本地路径一定可显示。
 
-下载或展示失败时，只用原任务download/查询恢复或尝试宿主可用媒体通道；没有实际可查看的商品图就明确阻塞，暂停单条prepare/生成，不重新解析碰运气或付费生图代替商品原图。商品图展示不额外要求每张审批；已知变体时展示后可继续无费用创意，正式生成仍按原报价授权规则。批次模式沿用批次合同。
+下载或展示失败时，只用原任务download/查询恢复或尝试宿主可用媒体通道；确实缺原图时可按[失败补充](product-fallback.md)接收用户原图或宿主浏览器资料并正式导入；仍没有实际可查看的商品图就明确阻塞，暂停单条prepare/生成，不重新解析碰运气或付费生图代替商品原图。商品图展示不额外要求每张审批；已知变体时展示后可继续无费用创意，正式生成仍按原报价授权规则。批次模式沿用批次合同。
 
 确认变体后设计脚本。对用户按[模型选档与接口映射](creative-guidance.md)展示轻量模型、标准模型、专业模型；宿主在准备前映射到原有params.model，客户端不新增中文档位字段。prepare的额外核验字段由宿主基于真实查看填写：
 

@@ -6,8 +6,10 @@ import { atomicJSON, readJSON, regularPath, privateDirectory, redact, noCredenti
 import { loadCredentials, verifyIdentity } from './credentials.mjs';
 import { validateResolve, validatePrepare, validateAuthorization, resource, fields } from './contracts.mjs';
 import { reserveBatch, withBatchLock } from './batch.mjs';
+import { prepareProductImport } from './product-import.mjs';
 
 const names = { resolve: 'reelpeat_resolve_product', prepare: 'reelpeat_prepare_generation',
+  'import-product': 'reelpeat_import_product',
   'generate-image': 'reelpeat_generate_image', 'generate-video': 'reelpeat_generate_video',
   context: 'reelpeat_get_context', balance: 'reelpeat_get_balance',
   task: 'reelpeat_get_task', creation: 'reelpeat_get_creation' };
@@ -70,7 +72,8 @@ async function createRun(operation, input, options, active) {
 }
 
 export async function loadRun(file, active) {
-  const state = await readJSON(file, { privateMode: true });
+  // 中文注释：导入恢复记录可包含8MiB原图编码，仍使用私有权限及有限大小。
+  const state = await readJSON(file, { privateMode: true, maxBytes: 16 * 1024 * 1024 });
   noCredentials(state);
   if (state.schema_version !== 1 || state.account_id !== String(active.context.account_id) ||
       state.api_base_url !== active.credentials.api_base_url)
@@ -85,6 +88,7 @@ function observe(state, task, now) {
   state.creation_id = task.creation_id || state.creation_id;
   if (state.operation === 'prepare') state.preparation_id = state.task_id;
   state.task_status = task.status || null;
+  state.error_code = task.error_code || null;
   state.billing = task.billing || null;
   state.result = redact(task.result || {});
   state.observed_at = new Date(now).toISOString();
@@ -105,8 +109,14 @@ function projection(state, file, operation = state.operation) {
   return envelope(operation, { result_type: resultType, account_id: state.account_id,
     creation_id: state.creation_id, task_id: state.task_id, task_status: state.task_status,
     billing: state.billing, recovery_file: file, assets: state.assets || [],
+    ...(state.task_status === 'failed' ? { error: { code: state.error_code || 'TASK_FAILED',
+      message: state.operation === 'resolve'
+        ? '原解析任务已失败；可按Skill收集浏览器或用户资料后另行导入，不能把原任务改成成功。'
+        : '原任务已失败，请保留恢复记录并核对当前阶段，不自动重复生成。' } } : {}),
     data: state.result || {}, quote: state.quote || null, content_review: state.content_review,
-    next_action: resultType === 'quote_ready' ? { operation: 'request-user-authorization', recovery_file: file }
+    next_action: state.task_status === 'failed' ? (state.operation === 'resolve'
+      ? { operation: 'collect-product-information', source_task_id: state.task_id, recovery_file: file } : null)
+      : resultType === 'quote_ready' ? { operation: 'request-user-authorization', recovery_file: file }
       : { operation: state.task_status === 'completed' && resultType !== 'pending' ? 'download' : 'resume', recovery_file: file } });
 }
 
@@ -161,13 +171,14 @@ async function submit(state, file, operation, input, active, seconds) {
 }
 
 export async function startOperation(operation, input, options, active) {
+  if (operation === 'import-product') input = await prepareProductImport(input, options, active.context);
   noCredentials(input);
   if (JSON.stringify(input).includes(active.credentials.api_key))
     fail('CREDENTIAL_IN_INPUT', '业务输入包含凭据，禁止发送或保存。');
   if (JSON.stringify(redact(input)) !== JSON.stringify(input))
     fail('SENSITIVE_INPUT', '业务输入不能包含凭据字段或临时签名URL；请使用已核验素材引用和非秘密说明。');
   if (operation === 'resolve') validateResolve(input, active.context);
-  else validatePrepare(input, active.context);
+  else if (operation !== 'import-product') validatePrepare(input, active.context);
   const { state, file } = await createRun(operation, input, options, active);
   const request = operation === 'prepare'
     ? Object.fromEntries(['creation_id', 'kind', 'prompt', 'asset_refs', 'params'].map(key => [key, input[key]]))

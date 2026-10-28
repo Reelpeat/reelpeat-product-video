@@ -96,14 +96,14 @@ export async function atomicJSON(target, value, { createOnly = false } = {}) {
   }
 }
 
-export async function readJSON(target, { privateMode = false } = {}) {
+export async function readJSON(target, { privateMode = false, maxBytes = 2 * 1024 * 1024 } = {}) {
   await regularPath(path.dirname(target), { directory: true, privateMode });
   await regularPath(target, { privateMode });
   let handle;
   try {
     handle = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size > 2 * 1024 * 1024) throw new Error();
+    if (!stat.isFile() || stat.size > maxBytes) throw new Error();
     const value = JSON.parse((await handle.readFile('utf8')).replace(/^\uFEFF/, ''));
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
     return value;
@@ -126,6 +126,16 @@ export function redact(value, secrets = []) {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)
     .filter(([key]) => !/^(api_key|authorization|cookie|token|secret|password|preview_url|video_url|download_url)$/i.test(key))
     .map(([key, item]) => {
+      // 中文注释：导入的公开来源及原图URL同样保留变体参数；凭据/签名仍不允许持久化。
+      if (key === 'source_urls' && Array.isArray(item))
+        return [key, item.map(url => redact({ product_url: url }, secrets).product_url)];
+      if (key === 'images' && Array.isArray(item))
+        return [key, item.map(image => {
+          const safe = redact(image, secrets);
+          if (typeof image?.url === 'string' && safeProductURL(image.url))
+            safe.url = redact({ product_url: image.url }, secrets).product_url;
+          return safe;
+        })];
       if (key === 'product_url' && typeof item === 'string' && safeProductURL(item)) {
         for (const secret of secrets.filter(Boolean)) item = item.split(secret).join('[redacted]');
         return [key, item];

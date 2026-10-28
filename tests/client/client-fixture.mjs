@@ -31,6 +31,8 @@ export async function fixture(t, options = {}) {
     capability_details: options.empty ? {} : {
       product_parse: { platforms: ['tiktok_shop'], url_hosts: ['shop.tiktok.com'],
         url_path_pattern: '/(?:view/)?product/\\d{10,25}(?:/|$)',
+        fallback_import: { source_kinds: ['user_supplied', 'browser_observed'], image_inputs: ['url', 'data_base64'],
+          max_images: 9, max_total_image_bytes: 8 * 1024 * 1024, billing: { status: 'not_billable', credits: 0 } },
         billing: { status: 'not_billable', credits: 0 } },
       video_generation: { specifications: [{ model: 'mini', resolution: '480p', durations: [15], sku_id: 'fixture-mini' }],
         ratios: ['9:16'], generate_audio: [true, false], camera_fixed: [true, false],
@@ -71,17 +73,21 @@ export async function fixture(t, options = {}) {
     }
     if (request.method === 'POST') {
       if (!accepted.has(record.key)) {
-        const kind = record.path.endsWith('/resolve') ? 'product_parse'
+        const kind = record.path.endsWith('/resolve') || record.path.endsWith('/import') ? 'product_parse'
           : record.path.endsWith('/preparations') ? 'preparation' : 'video';
         const id = kind + '-' + (tasks.size + 1);
         const creationId = options.multi ? (kind === 'product_parse' ? 'creation-' + id
           : record.path.split('/')[5]) : 'creation-fixture';
         const task = taskResult(kind, id, creationId);
+        // 中文注释：原抓取失败后导入仍能完成，用于验证兜底不会重复解析或收费。
+        if (options.parseFails && record.path.endsWith('/resolve'))
+          Object.assign(task, { status: 'failed', error_code: 'PRODUCT_PARSE_FAILED', result: {} });
         tasks.set(id, task); accepted.set(record.key, id);
         if (kind === 'video') dispatches++;
       }
       const id = accepted.get(record.key), task = tasks.get(id);
-      if (options.loseOnce && !lost && task.kind === options.loseOnce) {
+      if (options.loseOnce && !lost && (task.kind === options.loseOnce ||
+          (options.loseOnce === 'import' && record.path.endsWith('/import')))) {
         lost = true; response.destroy(); return;
       }
       response.statusCode = 202;

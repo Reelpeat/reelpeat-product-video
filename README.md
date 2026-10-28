@@ -2,7 +2,7 @@
 
 给出商品链接和目标市场，由宿主 Agent 读取商品事实、实际看图、设计脚本，再通过随包 Node.js 客户端取得正式报价。只有用户明确同意对应输入与费用后才能提交生成。
 
-当前 Skill 版本：**1.3.6**。仓库：[Reelpeat/reelpeat-product-video](https://github.com/Reelpeat/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
+当前 Skill 版本：**1.4.0**。仓库：[Reelpeat/reelpeat-product-video](https://github.com/Reelpeat/reelpeat-product-video)。入口：[SKILL.md](.codex/skills/reelpeat-product-video/SKILL.md)。本仓库仅包含Skill及其必要文档、打包和测试资源，不包含原业务仓库的历史、后端、MCP服务或个人凭据。
 
 ## 安装与运行条件
 
@@ -28,14 +28,14 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs --help
 
 ## 当前网关与Key配置
 
-默认网关：
+默认生产网关：
 
-`https://www.realpeat.com/`
+`https://www.reelpeat.com/`
 
-未提供网关时，新配置使用此默认地址；用户显式提供其他网关时以其为准，已有配置不被默认值覆盖。发布源码不修改服务器网关、不读取或复制维护者已有Key。首次配置可省略 `--api-base`，也可显式指定：
+门户和Skill统一引导使用生产地址。需要连接其他环境时，请主动告知Agent具体地址，不根据当前页面域名自动切换。未提供网关时，新配置使用此默认地址；用户显式提供其他网关时以其为准，已有配置不被默认值覆盖。发布源码不修改服务器网关、不读取或复制维护者已有Key。首次配置可省略 `--api-base`，也可显式指定：
 
 ```bash
-node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://www.realpeat.com/"
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-base "https://www.reelpeat.com/"
 ```
 
 配置引导默认同时提供三种选择：**Agent代配、临时网页、终端隐藏输入**。允许用户将个人Key直接发给Agent代配；聊天或工具记录可能保留输入，用户也可以选择自行填写，不必把Key发给Agent。Agent不复述Key、不把它放进命令参数、URL或报告，只通过官方客户端的受控stdin/隐藏终端传入，不修改其他Agent全局配置。
@@ -43,7 +43,7 @@ node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth setup --api-
 自行在终端配置时运行下面不含Key的命令，按提示粘贴后回车，输入不回显；Ctrl+C取消，不更改原配置：
 
 ```bash
-node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-base "https://www.realpeat.com/"
+node .codex/skills/reelpeat-product-video/scripts/reelpeat.mjs auth set --api-base "https://www.reelpeat.com/"
 ```
 
 Agent或受控进程可用auth set --stdin，通过工具的标准输入传入原始Key后结束输入；不要改成--key或echo明文Key的shell命令。临时网页仍用上方auth setup启动，用户按“验证账号→确认保存”完成，不是只点验证。Key从已核验的Reelpeat账户入口创建，使用doctor或--help返回的完整account_url引导注册/登录；已有账号不用重复注册，充值仍走已核验账户入口。
@@ -68,7 +68,7 @@ doctor仅检查身份、能力及有权限时的余额，不解析商品、不�
 
 商品链接不按电商平台白名单预先拒绝：解析能力与免费政策开放后，公开HTTP(S)商品链接（包括Lazada、Amazon及其他商城）保留SKU/变体参数交给服务端尝试。能否成功以实际来源响应为准；遇到登录、验证、无可信商品事实或服务不可用时如实说明并暂停。URL安全、真实看图与付费授权要求仍保留。
 
-单条依次执行resolve、download并实际看图，**获取商品后先在用户可见回复中展示商品信息及至少一张真实商品图**，再设计剧本和prepare，停在quote_ready。首次出图不能推迟到报价或生成后；图片编号、JSON、路径文字和Agent自己看图不能代替向用户展示。不能内嵌时使用宿主实际可用的图片附件/用户可达预览，仍无法查看则说明阻塞并保留原任务，暂停单条后续准备/生成，不额外付费生图。默认一次展示“分镜与口播＋所选参考图预览＋规格与正式报价”，用户确认后才调用generate-video；已有明确覆盖本次输入、数量与金额的授权可以沿用。用户有明确要求时以用户要求为准，例如静音不额外补口播，首轮已展示且最终选图相同、明确不需重复时可引用图号；省略展示不自动授权未知费用。所有业务参数通过UTF-8 JSON文件或stdin传入，详细阶段、参数和授权格式见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。价格、余额及规格来自本次正式API响应，示例不保证平台、模型或价格恒定可用。
+解析失败或缺必要资料时，宿主可通过浏览器或用户提供的其他链接、商品信息与原图取材，经免费import-product导入继续；服务须明确公布fallback_import能力。见[失败补充合同](.codex/skills/reelpeat-product-video/references/product-fallback.md)。单条依次执行resolve（必要时import-product）、download并实际看图，**获取商品后先在用户可见回复中展示商品信息及至少一张真实商品图**，再设计剧本和prepare，停在quote_ready。首次出图不能推迟到报价或生成后；图片编号、JSON、路径文字和Agent自己看图不能代替向用户展示。不能内嵌时使用宿主实际可用的图片附件/用户可达预览，仍无法查看则说明阻塞并保留原任务，暂停单条后续准备/生成，不额外付费生图。默认一次展示“分镜与口播＋所选参考图预览＋规格与正式报价”，用户确认后才调用generate-video；已有明确覆盖本次输入、数量与金额的授权可以沿用。用户有明确要求时以用户要求为准，例如静音不额外补口播，首轮已展示且最终选图相同、明确不需重复时可引用图号；省略展示不自动授权未知费用。所有业务参数通过UTF-8 JSON文件或stdin传入，详细阶段、参数和授权格式见[客户端合同](.codex/skills/reelpeat-product-video/references/client-usage.md)。价格、余额及规格来自本次正式API响应，示例不保证平台、模型或价格恒定可用。
 
 生成选档与页面统一为**轻量模型、标准模型、专业模型**，再选择该档实际开放的清晰度；单条确认和批次授权使用同一名称。宿主按[模型映射](.codex/skills/reelpeat-product-video/references/creative-guidance.md)转换为原接口值，客户端传参不变；模型推荐不替代正式报价与费用授权。
 

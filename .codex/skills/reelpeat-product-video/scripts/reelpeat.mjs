@@ -17,14 +17,14 @@ const help = {
   // 中文注释：帮助中的固定公开链接供宿主引导首次接入，不经过临时媒体URL脱敏流程。
   account_url: accountEntry(),
   usage: 'node <skill-root>/scripts/reelpeat.mjs <operation> [options]',
-  operations: ['doctor', 'auth set', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'prepare',
+  operations: ['doctor', 'auth set', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'import-product', 'prepare',
     'generate-image', 'generate-video', 'task', 'creation', 'resume', 'download', 'batch-init', 'batch-status'],
   input: ['--params-file <UTF-8 JSON文件> 或 --params-file - 从stdin读取',
     '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>',
     '批次：batch-init --params-file <已明确确认的批次JSON>；batch-status --batch-file <batch.json>',
     '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],
   // 中文注释：帮助与运行时采用同一网关优先级，既有配置不会被默认值覆盖。
-  credentials: ['默认网关https://www.realpeat.com/；--api-base <地址>优先于已有配置和默认值',
+  credentials: ['默认生产网关https://www.reelpeat.com/；--api-base <地址>优先于已有配置和默认值',
     '默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
     '--config <明确凭据文件>；--auth-source env 显式宿主secret模式，可另传--api-base',
     'auth set [--api-base <地址>]：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
@@ -52,17 +52,17 @@ function optionsFrom(argv) {
   } catch { fail('INVALID_ARGUMENTS', '命令或选项无效，请执行--help；不要把Key放进命令参数。'); }
 }
 
-async function inputJSON(options) {
+async function inputJSON(options, maxBytes = 2 * 1024 * 1024) {
   const file = options['params-file'];
   if (!file) fail('PARAMS_FILE_REQUIRED', '该操作需要--params-file，或--params-file -读取stdin。');
-  if (file !== '-') return readJSON(path.resolve(options['work-dir'] || process.cwd(), file));
+  if (file !== '-') return readJSON(path.resolve(options['work-dir'] || process.cwd(), file), { maxBytes });
   try {
     let content = '';
     // 中文注释：由流解码器保留跨chunk的UTF-8字节，避免中文被替换字符破坏。
     process.stdin.setEncoding('utf8');
     for await (const chunk of process.stdin) {
       content += chunk;
-      if (Buffer.byteLength(content) > 2 * 1024 * 1024) throw new Error();
+      if (Buffer.byteLength(content) > maxBytes) throw new Error();
     }
     const value = JSON.parse(content.replace(/^\uFEFF/, ''));
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
@@ -149,8 +149,9 @@ export async function main(argv = process.argv.slice(2)) {
     const input = operation === 'task' ? { task_id: options['task-id'] }
       : operation === 'creation' ? { creation_id: options['creation-id'] } : {};
     result = await readOperation(operation, input, active);
-  } else if (['resolve', 'prepare'].includes(operation))
-    result = await startOperation(operation, await inputJSON(options), options, active);
+  } else if (['resolve', 'import-product', 'prepare'].includes(operation))
+    // 中文注释：只有商品导入允许有限大小的图片编码，其他业务输入仍限制2MiB。
+    result = await startOperation(operation, await inputJSON(options, operation === 'import-product' ? 16 * 1024 * 1024 : 2 * 1024 * 1024), options, active);
   else if (operation === 'resume' || operation === 'download') {
     if (options['task-id'] && options['run-file']) fail('AMBIGUOUS_RECOVERY', '原任务ID和恢复文件只选一种。');
     if (options['task-id']) {

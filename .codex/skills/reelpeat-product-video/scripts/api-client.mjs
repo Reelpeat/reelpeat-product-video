@@ -1,16 +1,17 @@
 const BASE = '/api/open/v1';
-// 中文注释：仅未指定地址时使用默认网关，显式地址仍须经过相同的安全校验。
-export const DEFAULT_API_BASE = 'https://www.realpeat.com/';
+// 中文注释：仅未指定地址时使用生产网关，显式地址仍须经过相同的安全校验。
+export const DEFAULT_API_BASE = 'https://www.reelpeat.com/';
 const id = (value) => {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) throw new Error('无效的资源 ID');
   return encodeURIComponent(value);
 };
 
-// 只允许目标合同中的八种请求，拒绝额外字段进入对客 API。
+// 中文注释：只允许明确的公开请求合同，拒绝额外字段进入对客 API。
 export const operations = Object.freeze({
   reelpeat_get_context: { method: 'GET', path: () => `${BASE}/context`, fields: [] },
   reelpeat_get_balance: { method: 'GET', path: () => `${BASE}/account/balance`, fields: [] },
   reelpeat_resolve_product: { method: 'POST', path: () => `${BASE}/products/resolve`, fields: ['product_url', 'target_market'], headers: ['idempotency_key'] },
+  reelpeat_import_product: { method: 'POST', path: () => `${BASE}/products/import`, fields: ['source_task_id', 'source_kind', 'title', 'description', 'specifications', 'selected_variant', 'source_urls', 'images'], headers: ['idempotency_key'] },
   reelpeat_prepare_generation: { method: 'POST', pathFields: ['creation_id'], path: ({ creation_id }) => `${BASE}/creations/${id(creation_id)}/preparations`, fields: ['kind', 'prompt', 'asset_refs', 'params'], headers: ['idempotency_key'] },
   reelpeat_generate_image: { method: 'POST', pathFields: ['creation_id'], path: ({ creation_id }) => `${BASE}/creations/${id(creation_id)}/images`, fields: ['preparation_id', 'quote_id', 'max_credits'], headers: ['idempotency_key'] },
   reelpeat_generate_video: { method: 'POST', pathFields: ['creation_id'], path: ({ creation_id }) => `${BASE}/creations/${id(creation_id)}/videos`, fields: ['preparation_id', 'quote_id', 'max_credits'], headers: ['idempotency_key'] },

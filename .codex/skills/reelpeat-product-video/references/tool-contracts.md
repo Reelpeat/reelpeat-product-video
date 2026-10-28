@@ -2,9 +2,9 @@
 
 默认官方Node客户端见[客户端执行合同](client-usage.md)。本页保留MCP兼容入口与同一组公开业务字段；选择MCP时才按工具Schema调用，禁止因写请求结果未知而跨入口重提。
 
-本页按仓库 `ec6dc1b72`（2026-10-22）的 MCP Schema 与对客路由核对，不代表某个部署已经开启能力。工具实际 Schema 和可核验的服务能力优先。通过配套连接器调用，不从本页猜测域名或自行访问内部 API。
+本页按当前 MCP Schema 与对客路由维护；1.4.0新增资料导入，既有八个基础工具保持兼容，不代表某个部署已经开启能力。工具实际 Schema 和可核验的服务能力优先。通过配套连接器调用，不从本页猜测域名或自行访问内部 API。
 
-## 八个工具
+## 公开工具
 
 以下为 **MCP 参数**，不是直接 HTTP 请求体。连接器把 `idempotency_key` 转为 `Idempotency-Key` 请求头，个人 Key 从宿主凭据层注入；两者都不需要用户在聊天填写。
 
@@ -13,6 +13,7 @@
 | `reelpeat_get_context` | `{}` | `data.account_id/workspace/capabilities/capability_details`；另返回当前 Key 的 `scopes` 与 `max_credits_per_generation`，响应 `no-store`。能力按本次 Key、开关及已发布目录读取，不是资金预占或后续受理保证；旧部署缺字段时不猜 |
 | `reelpeat_get_balance` | `{}` | `data.available_credits/frozen_credits/account_status/as_of`；要求 `account:read`，零余额可查询，不隐式开户 |
 | `reelpeat_resolve_product` | `product_url, target_market, idempotency_key` | `data.creation_id/task_id/status/result/poll_after_seconds`；MCP 对应 `POST /api/open/v1/products/resolve`，不是旧方案中的 POST creations |
+| `reelpeat_import_product` | `source_task_id, source_kind, title, images, idempotency_key`，可选 `description/specifications/selected_variant/source_urls` | `POST /api/open/v1/products/import`；绑定本人已终结解析任务的原creation，独立幂等任务；images每项为公开url或data_base64，不接受本地路径；免费政策及大小限制须由fallback_import能力核验 |
 | `reelpeat_prepare_generation` | `creation_id, kind, prompt, asset_refs, params, idempotency_key` | `data.preparation_id/creation_id/kind/status/poll_after_seconds` 等；随后把 preparation ID 作为 `task_id` 查询。kind 为 image 或 video；字段为 `params`，不是 `specification` |
 | `reelpeat_generate_image` | `creation_id, preparation_id, quote_id, idempotency_key, max_credits` | 单张图片任务；不接受额外 prompt、规格或素材，使用准备快照 |
 | `reelpeat_generate_video` | 与图片提交相同 | 视频任务；不在 MCP 请求中等待视频完成 |
@@ -26,6 +27,7 @@
 新增能力发现合同保持 `capabilities` 为字符串列表，详情按同名键读取：
 
 - `product_parse`：`billing.status=not_billable/credits=0` 表示解析不扣 R 币。`url_policy=public_http`、`platforms=["*"]` 表示公开 HTTP(S) 商品链接均可提交尝试，`availability=determined_by_parse_result` 表示以实际来源响应判断可用性；不是保证所有网站都能抓取成功。旧清单列出的平台、域名或路径仅作为历史提示，不用它提前拒绝 Lazada、Amazon、短链或其他商城；权限、URL安全与缺失事实检查仍保留。
+- `product_parse.fallback_import`：明确 `source_kinds`、`image_inputs`、`max_images`、`max_total_image_bytes` 及免费billing，才可提交用户或浏览器补充资料；缺字段的旧服务不支持导入，不能仅凭新版Skill推断已部署。服务最多9张、新图片总量8MiB，客户端本地file会转为data_base64。
 - `video_generation`：`specifications` 每项含 `model/resolution/sku_id/durations`，与同级 `ratios/generate_audio/camera_fixed/required_params` 组合出完整 `params`。只使用清单实际包含的组合和整数秒数。规格取执行能力与当前目录、业务倍率的交集，不把目录中的其他 SKU 当成支持值。
 - 视频 `billing.preparation_credits=0/quote_required=true` 表示准备不扣 R 币、生成仍须取得正式 Quote。能力发现不创建 Quote、不返回本次正式价格，也不证明余额足够。Key 额度与费用授权仍分别校验。
 
@@ -46,7 +48,7 @@
 
 这是结构示例，**只有实际部署明确开放这一组合时才可用**。代码可识别 mini/fast/standard；对应用户档位分别是轻量模型/标准模型/专业模型，用户选项与接口映射按[模型选档与接口映射](creative-guidance.md)，MCP传参保持原值。视频时长整数 4–15 秒，比率 16:9、9:16 或 1:1，仍以本次能力清单为准，分辨率受模型组合限制。不能从代码识别范围推断已售规格。
 
-图片 `params` 只接受 `{"sku_id":"服务明确开放的图片SKU"}`；不传 model/size/quality/resolution，模型调用规格由可信目录确定。八个工具当前没有完整的公开图片目录查询能力，缺 SKU 时暂停补图，不套用历史测试 SKU 或价格。
+图片 `params` 只接受 `{"sku_id":"服务明确开放的图片SKU"}`；不传 model/size/quality/resolution，模型调用规格由可信目录确定。当前工具没有完整的公开图片目录查询能力，缺 SKU 时暂停补图，不套用历史测试 SKU 或价格。
 
 ### 任务结果
 
@@ -79,9 +81,11 @@
 
 | 事实 | 应做什么 |
 | --- | --- |
-| 无连接/401/Key 失效或撤销 | 保留创作，引导官方Key设置；用户可选择Agent代配、临时网页或终端命令。MCP代配仍须宿主有对应凭据设置能力，不将Key塞进八个业务工具参数 |
+| 无连接/401/Key 失效或撤销 | 保留创作，引导官方Key设置；用户可选择Agent代配、临时网页或终端命令。MCP代配仍须宿主有对应凭据设置能力，不将Key塞进业务工具参数 |
 | 403/scope 不足 | 引导本人管理页调整；缺余额权限不显示余额或差额 |
-| `INVALID_PRODUCT_URL` / `UNSUPPORTED_PRODUCT_URL` / `PRODUCT_PARSE_NOT_ENABLED` | 按本次实际响应说明链接安全/格式或服务不可用，不从平台名称预先断言失败；保留原链接与需求。解析失败可请用户提供商品信息和原图，不绕过官方入口、不伪造事实 |
+| `INVALID_PRODUCT_URL` / `UNSUPPORTED_PRODUCT_URL` / `PRODUCT_PARSE_NOT_ENABLED` | 按本次实际响应说明链接安全/格式或服务不可用，不从平台名称预先断言失败；保留原链接与需求。解析未受理时先恢复连接／能力，保留资料；已受理任务明确失败或缺资料时按[浏览器与用户补充](product-fallback.md)通过正式导入续作，不绕过官方入口、不伪造事实 |
+| `PRODUCT_PARSE_FAILED` | 保留原已终结任务，优先宿主浏览器有界取材，或用户提供其他链接／商品信息／原图；通过正式import-product取得新素材引用后继续，不重复抓取原链接碰运气 |
+| `SOURCE_TASK_NOT_TERMINAL` / `SOURCE_TASK_NOT_FOUND` / `CREATION_NOT_EDITABLE` | 查询并核对原任务、个人账号及草稿状态；不能通过新账号、伪造ID或改原失败结果绕过 |
 | `FULL_VIDEO_PARAMS_REQUIRED` / `IMAGE_SPEC_NOT_QUOTABLE` | 依据可信能力补齐输入或暂停，不猜 SKU；修改输入须重新准备 |
 | `QUOTE_EXPIRED` / `QUOTE_INPUT_MISMATCH` / `QUOTE_ALREADY_USED` | 先查原请求受理事实；确认新操作后按准备和授权规则处理 |
 | 余额不足 | 用服务端已授权披露的差额，引导个人充值；不能保证充值套餐恰好等于差额 |

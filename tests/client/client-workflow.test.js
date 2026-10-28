@@ -433,10 +433,10 @@ test('新配置默认网关、用户显式网关优先，已有地址不被默�
     calls.push(url.href);
     return { status: 200, json: async () => ({ code: 0, data: f.context() }) };
   } };
-  assert.equal(normalizeBase(), 'https://www.realpeat.com/');
+  assert.equal(normalizeBase(), 'https://www.reelpeat.com/');
   await saveCredentials({ config: destination }, secret, dependencies);
-  assert.equal((await readJSON(destination)).api_base_url, 'https://www.realpeat.com/');
-  assert.equal(calls[0], 'https://www.realpeat.com/api/open/v1/context');
+  assert.equal((await readJSON(destination)).api_base_url, 'https://www.reelpeat.com/');
+  assert.equal(calls[0], 'https://www.reelpeat.com/api/open/v1/context');
   await saveCredentials({ config: destination, 'api-base': 'https://custom.invalid/' }, secret, dependencies);
   assert.equal((await readJSON(destination)).api_base_url, 'https://custom.invalid/');
   assert.equal(calls[1], 'https://custom.invalid/api/open/v1/context');
@@ -463,7 +463,7 @@ test('显式env模式也使用默认或用户提供的网关，不修改凭据�
   const previous = process.env.REELPEAT_API_KEY;
   process.env.REELPEAT_API_KEY = secret;
   try {
-    assert.equal((await loadCredentials({ 'auth-source': 'env' })).api_base_url, 'https://www.realpeat.com/');
+    assert.equal((await loadCredentials({ 'auth-source': 'env' })).api_base_url, 'https://www.reelpeat.com/');
     assert.equal((await loadCredentials({ 'auth-source': 'env', 'api-base': 'https://custom.invalid/' })).api_base_url, 'https://custom.invalid/');
   } finally {
     if (previous === undefined) delete process.env.REELPEAT_API_KEY;

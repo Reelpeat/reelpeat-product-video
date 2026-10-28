@@ -32,7 +32,7 @@ test('首次接入保留推广参数及固定Key回跳，不为其他环境或�
   const help = await cli(['--help']);
   const url = new URL(help.value.data.account_url);
   assert.equal(url.protocol, 'https:');
-  assert.equal(url.origin, 'https://www.realpeat.com');
+  assert.equal(url.origin, 'https://www.reelpeat.com');
   assert.equal(url.pathname, '/vorder/login');
   assert.match(url.searchParams.get('acq_id'), /^[a-f0-9]{32}$/);
   for (const [key, value] of Object.entries({ utm_source: 'skill', utm_medium: 'skill',
@@ -390,13 +390,13 @@ test('临时网页省略网关时按默认站点验证并保存', async t => {
   });
   t.after(() => { server.closeAllConnections(); server.close(); });
   const html = await (await fetch(setup_url)).text();
-  assert.ok(html.includes('https://www.realpeat.com/vorder/login?'));
+  assert.ok(html.includes('https://www.reelpeat.com/vorder/login?'));
   const csrf = html.match(/name="csrf" value="([a-f0-9]+)"/)[1];
   const post = form => fetch(setup_url, { method: 'POST', headers: { Origin: new URL(setup_url).origin }, body: new URLSearchParams(form) });
   const checked = await post({ csrf, key: secret });
   assert.equal(checked.status, 200);
   const confirmation = (await checked.text()).match(/name="confirmation_id" value="([a-f0-9]+)"/)[1];
   assert.equal((await post({ csrf, action: 'save', confirmation_id: confirmation })).status, 200);
-  assert.deepEqual(calls, Array(2).fill('https://www.realpeat.com/api/open/v1/context'));
-  assert.equal((await readJSON(destination)).api_base_url, 'https://www.realpeat.com/');
+  assert.deepEqual(calls, Array(2).fill('https://www.reelpeat.com/api/open/v1/context'));
+  assert.equal((await readJSON(destination)).api_base_url, 'https://www.reelpeat.com/');
 });
