@@ -401,7 +401,8 @@ test('新旧完整Key均能核验个人身份，掩码与接口合同错误各�
     });
     assert.equal(context.workspace, 'personal');
   }
-  for (const mask of ['reelpeat_…abcd', 'reelpeat_abc...def'])
+  // 中文注释：新默认前缀与历史前缀的脱敏值都不能保存为凭据。
+  for (const mask of ['rp_…abcd', 'rp_abc...def', 'reelpeat_…abcd', 'reelpeat_abc...def'])
     assert.throws(() => normalizeKey(mask), { code: 'API_KEY_MASKED' });
   for (const [workspace, expected] of [[undefined, 'CONTEXT_INVALID'], ['unknown', 'CONTEXT_INVALID'], ['team', 'PERSONAL_ACCOUNT_REQUIRED']])
     await assert.rejects(verifyIdentity({ api_key: secret, api_base_url: 'https://fixture.invalid/' }, {

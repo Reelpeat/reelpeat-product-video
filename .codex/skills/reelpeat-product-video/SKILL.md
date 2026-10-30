@@ -1,13 +1,13 @@
 ---
 name: reelpeat-product-video
-description: 将商品链接制作成带货短视频。使用随包 Reelpeat Node.js 客户端获取商品事实和图片；解析失败时由宿主浏览器或用户补充资料并导入原图，继续设计脚本和按正式报价授权生成；支持表格批次确认、规则授权与任务续接，兼容 Reelpeat MCP。
+description: 将商品链接或用户提供的商品图片与信息制作成带货短视频。使用随包 Reelpeat Node.js 客户端获取商品事实和图片；解析失败时由宿主浏览器或用户补充资料并导入原图，继续设计脚本和按正式报价授权生成；支持表格批次确认、规则授权与任务续接，兼容 Reelpeat MCP。
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   author: "Mint"
   display_name: "商品链接生成带货视频"
   display_name_en: "Product Link to Sales Video"
-  description_zh: "商品链接或商品表制作带货视频；解析失败可用浏览器或用户补充资料与原图，按正式报价确认生成并支持续接。"
-  description_en: "Turn product links into sales videos with browser or user-supplied fallback facts and images, upfront quotes, approvals, and resumable tasks."
+  description_zh: "商品链接、图片与商品信息或商品表制作带货视频；解析失败可用浏览器或用户补充资料与原图，按正式报价确认生成并支持续接。"
+  description_en: "Turn product links or supplied product images and facts into sales videos with browser or user-supplied fallback facts and images, upfront quotes, approvals, and resumable tasks."
 ---
 
 # 商品链接生成带货视频
@@ -33,11 +33,15 @@ metadata:
 
 **配置失败时主动引导替代方式：**用户反馈未成功、页面打不开或保存后检查失败时，不反复要求重做同一步。先保留具体错误、原保存位置和制作需求，按[失败后的替代配置](references/client-usage.md)判断原因；当前方式受阻时，说明其他可用方式、推荐理由和实际可执行的下一步（网页链接或不含Key的完整命令），让用户方便地切换。已有明确选择且具备所需输入与权限时直接沿用；涉及存储位置或凭据可见性改变时说明并取得选择，不擅自改成聊天收Key或项目存储。已保存但读不到先核同环境、同路径；鉴权失败、网络不通或缺运行环境不能仅靠换输入方式解决。成功后按本次保存返回的config路径核验，账号/API与原任务一致时再续接原需求，不要求重发已提供的Key或重新注册。
 
-## 商品链接到视频
+## 商品链接或本地图片到视频
 
 下文工具名描述同一组公开业务操作，客户端命令映射见执行合同。`resolve`、`import-product`、`prepare`、`generate-video`、`resume`、`download` 是固定阶段入口。业务命令使用参数文件/stdin输入、单个JSON输出，进度走stderr。`accepted`不是成片，退出码2是等待结束可续接，退出码3是媒体交付不完整，均不授权新生成。当前直接客户端仅新开原图视频路径；图片公开目录合同缺失时明确暂停新生图，仍可查询/下载本人历史图片。
 
 ### 1. 获取真实商品、看图并先展示商品图
+
+**按用户已有输入选择入口，不强制先要商品链接：**用户只发送商品图、商品名称／信息时，先核验独立 `product_import` 能力及免费政策；使用 `import-product` 传 `target_market`、`source_kind=user_supplied`、`title`、`images[].file` 和已有商品信息，**不传 source_task_id，不先 resolve、不伪造链接或任务 ID**。客户端会读取获准的本地文件并上传，服务端直接创建创作及持久导入任务。最少需要明确商品身份、至少一张清晰真实图和目标市场；缺哪项只补问哪项，截图可识别内容由助手整理，不要求用户重复录入。多规格需确定款式。旧服务未公布该能力时保留资料并说明需服务升级，不能用失败补充能力冒充支持直接创建。详见[图片直接创作](references/product-fallback.md)。
+
+用户有商品链接时继续以下解析流程；两种入口完成后都必须实际看图并先展示商品图，再设计脚本、准备正式报价，用户确认后提交。
 
 在商品解析能力与免费政策已开放后，调用 `reelpeat_resolve_product(product_url, target_market, idempotency_key)`，保留商品变体和分享参数，不按平台白名单提前拦截；目标市场缺失且无法从上下文确定时只问这个关键问题。记录返回的创作/任务身份，按建议间隔用 `reelpeat_get_task` 查询。来源不提供完整规格、变体或图片时明确缺失，不用猜测或营销改写填充事实。
 

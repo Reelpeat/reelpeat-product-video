@@ -346,7 +346,8 @@ test('打包源目录不能存凭据，环境模式不接受静默文件来源',
 // 中文注释：真实PTY比较macOS终端与Agent stdin初始化，覆盖粘贴控制序列和新旧Key格式。
 test('终端与Agent初始化保存相同完整Key，短Key、旧Key及粘贴换行不截断', { skip: process.platform === 'win32' }, async t => {
   const f = await fixture(t);
-  for (const key of ['reelpeat_' + 'A_-b09'.repeat(4) + 'abc', 'reelpeat_' + 'ab09'.repeat(16)]) {
+  // 中文注释：新 rp_ 格式与历史两种长度都要保持完整保存、重读及 doctor 认证。
+  for (const key of ['rp_' + 'A_-b09'.repeat(4) + 'abc', 'reelpeat_' + 'A_-b09'.repeat(4) + 'abc', 'reelpeat_' + 'ab09'.repeat(16)]) {
     const args = ['auth', 'set', '--api-base', f.base + 'vorder/app', '--config', f.config];
     for (const input of [key + '\r', key + '\r\n', '\x1b[200~' + key + '\x1b[201~\r',
       '\x1b[200~' + key + '\n\x1b[201~\r', 'Bearer ' + key + '\n']) {

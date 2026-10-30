@@ -16,13 +16,22 @@ function publicURL(value) {
 
 // 中文注释：宿主只提供已授权的原图路径，客户端自己读取并上传，不让Agent拼接Base64。
 export async function prepareProductImport(input, options, context) {
-  fields(input, ['source_task_id', 'source_kind', 'title', 'description', 'specifications',
+  fields(input, ['source_task_id', 'target_market', 'source_kind', 'title', 'description', 'specifications',
     'selected_variant', 'source_urls', 'images']);
-  const capability = context.capability_details?.product_parse?.fallback_import;
-  if (!context.capabilities?.includes('product_parse') || capability?.billing?.status !== 'not_billable' ||
+  // 中文注释：直接图片创作独立发现能力，不能把旧服务的失败补充能力当作可直接创建。
+  const direct = input.source_task_id === undefined;
+  const capability = direct ? context.capability_details?.product_import : context.capability_details?.product_parse?.fallback_import;
+  if (!context.capabilities?.includes(direct ? 'product_import' : 'product_parse') || capability?.billing?.status !== 'not_billable' ||
       capability.billing.credits !== 0)
     fail('CAPABILITY_UNAVAILABLE', '服务尚未开放免费的商品资料导入，请保留资料并更新服务后续接。');
-  resource(input.source_task_id); text(input.title, 'title', 1000);
+  if (direct) {
+    if (typeof input.target_market !== 'string' || !/^[A-Za-z]{2,16}$/.test(input.target_market))
+      fail('INVALID_TARGET_MARKET', '直接图片创作需要2～16位字母的目标市场代码。');
+  } else {
+    resource(input.source_task_id);
+    if (input.target_market !== undefined) fail('INVALID_INPUT', '补充原任务时沿用原市场，不另传target_market。');
+  }
+  text(input.title, 'title', 1000);
   if (!capability.source_kinds?.includes(input.source_kind)) fail('INVALID_INPUT', '需要明确资料来自用户或浏览器。');
   for (const key of ['description', 'specifications', 'selected_variant']) {
     if (input[key] !== undefined && (typeof input[key] !== 'string' || input[key].length > (key === 'selected_variant' ? 1000 : 10000)))

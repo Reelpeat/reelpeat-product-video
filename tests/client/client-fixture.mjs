@@ -27,8 +27,11 @@ export async function fixture(t, options = {}) {
   const context = () => ({ account_id: options.account || 'fixture-A', workspace: 'personal',
     scopes: ['account:read', 'products:read', 'tasks:read', 'videos:generate'],
     max_credits_per_generation: options.limit ?? 100,
-    capabilities: options.empty ? [] : ['product_parse', 'video_generation'],
+    capabilities: options.empty ? [] : ['product_import', 'product_parse', 'video_generation'],
     capability_details: options.empty ? {} : {
+      product_import: { source_kinds: ['user_supplied', 'browser_observed'], image_inputs: ['url', 'data_base64'],
+        max_images: 9, max_total_image_bytes: 8 * 1024 * 1024, target_market_required: true,
+        billing: { status: 'not_billable', credits: 0 } },
       product_parse: { platforms: ['tiktok_shop'], url_hosts: ['shop.tiktok.com'],
         url_path_pattern: '/(?:view/)?product/\\d{10,25}(?:/|$)',
         fallback_import: { source_kinds: ['user_supplied', 'browser_observed'], image_inputs: ['url', 'data_base64'],

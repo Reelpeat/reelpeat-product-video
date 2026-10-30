@@ -13,6 +13,56 @@ const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQ
 const input = () => ({ source_task_id: 'failed-original', source_kind: 'user_supplied',
   title: '用户确认的黑色商品', selected_variant: '黑色', images: [{ data_base64: image.toString('base64') }] });
 
+test('只传本地图片与商品信息，CLI直接导入→下载→准备，不先解析、不付费', async t => {
+  const f = await fixture(t), active = await session(f.options);
+  const file = path.join(f.root, '本地商品.png'), params = path.join(f.root, 'direct.json');
+  await writeFile(file, image);
+  const body = { ...input(), target_market: 'MY', images: [{ file }] };
+  delete body.source_task_id;
+  await writeFile(params, JSON.stringify(body));
+  const result = await cli(['import-product', '--params-file', params, '--config', f.config,
+    '--work-dir', f.root, '--wait-seconds', '1']);
+  assert.equal(result.code, 0);
+  const sent = f.requests.find(r => r.path.endsWith('/products/import'));
+  assert.equal(sent.body.target_market, 'MY');
+  assert.equal(sent.body.source_task_id, undefined);
+  assert.deepEqual(Buffer.from(sent.body.images[0].data_base64, 'base64'), image);
+  assert.equal((await downloadOperation(result.value.recovery_file, active)).result_type, 'delivered');
+  assert.equal((await startOperation('prepare', preparationInput(), f.options, active)).result_type, 'quote_ready');
+  assert.equal(f.requests.filter(r => r.path.endsWith('/products/resolve')).length, 0);
+  assert.equal(f.dispatches(), 0);
+});
+
+test('直接导入缺能力或市场时阻止；原补充模式不能改市场', async t => {
+  const f = await fixture(t), active = await session(f.options);
+  const direct = { ...input(), target_market: 'MY' };
+  delete direct.source_task_id;
+  const old = structuredClone(active.context);
+  delete old.capability_details.product_import;
+  await assert.rejects(prepareProductImport(direct, f.options, old), e => e.code === 'CAPABILITY_UNAVAILABLE');
+  for (const market of [undefined, '', '马来西亚', 'M'])
+    await assert.rejects(prepareProductImport({ ...direct, target_market: market }, f.options, active.context),
+      e => e.code === 'INVALID_TARGET_MARKET');
+  await assert.rejects(prepareProductImport({ ...input(), target_market: 'MY' }, f.options, active.context),
+    e => e.code === 'INVALID_INPUT');
+  assert.equal(f.requests.filter(r => r.path.endsWith('/products/import')).length, 0);
+});
+
+test('直接创建响应丢失沿原键原图恢复，不多建创作', async t => {
+  const f = await fixture(t, { loseOnce: 'import' }), active = await session(f.options);
+  const body = { ...input(), target_market: 'MY' };
+  delete body.source_task_id;
+  const pending = await startOperation('import-product', body, f.options, active);
+  assert.equal(pending.result_type, 'pending');
+  const completed = await resumeOperation(pending.recovery_file, f.options, active);
+  assert.equal(completed.task_status, 'completed');
+  const sent = f.requests.filter(r => r.path.endsWith('/products/import'));
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].key, sent[1].key);
+  assert.deepEqual(sent[0].body, sent[1].body);
+  assert.equal(f.dispatches(), 0);
+});
+
 test('失败解析→本地原图导入→下载→报价授权→单次生成', async t => {
   const f = await fixture(t, { parseFails: true }), active = await session(f.options);
   const failed = await startOperation('resolve', { product_url: 'https://www.lazada.com.my/products/pdp-i4760826391-s26811211292.html', target_market: 'MY' }, f.options, active);

@@ -20,6 +20,7 @@ const help = {
   operations: ['doctor', 'auth set', 'auth setup', 'auth status', 'context', 'balance', 'resolve', 'import-product', 'prepare',
     'generate-image', 'generate-video', 'task', 'creation', 'resume', 'download', 'batch-init', 'batch-status'],
   input: ['--params-file <UTF-8 JSON文件> 或 --params-file - 从stdin读取',
+    'import-product：images可用file；无source_task_id时传target_market直接创建，有source_task_id时沿用原市场',
     '--run-file <原state.json>；生成另需 --authorization-file <本次明确授权JSON>',
     '批次：batch-init --params-file <已明确确认的批次JSON>；batch-status --batch-file <batch.json>',
     '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],

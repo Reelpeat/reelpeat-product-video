@@ -21,8 +21,8 @@ export function normalizeBase(base) {
 export function normalizeKey(key) {
   if (typeof key !== 'string') fail('INVALID_CREDENTIAL', '请输入个人API Key。');
   const value = key.trim().replace(/^Bearer /, '');
-  // 中文注释：列表掩码不是凭据，直接提示复制完整值，避免被误判为团队Key。
-  if (value.startsWith('reelpeat_') && /…|\.{3}/.test(value))
+  // 中文注释：新旧前缀的列表掩码都不是凭据，直接提示复制完整值。
+  if (/^(?:rp_|reelpeat_)/.test(value) && /…|\.{3}/.test(value))
     fail('API_KEY_MASKED', '输入的是脱敏显示值，请使用新建时复制的完整Key；脱敏值不能用于配置。');
   if (!value || value.length > 4096 || /\s/.test(value))
     fail('INVALID_CREDENTIAL', 'Key格式无效，请重新在配置界面输入。');

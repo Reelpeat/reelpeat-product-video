@@ -1,6 +1,6 @@
 # 官方 Node.js 客户端执行合同
 
-本文件与 Skill v1.4.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
+本文件与 Skill v1.5.0 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
 
 ## 1. 先定位，再执行
 
@@ -95,7 +95,7 @@ CI/受控环境仅在显式 --auth-source env 时读取宿主注入的 REELPEAT_
 | --- | --- |
 | context、balance | 读取当前身份/能力、余额；凭据来源选项同上 |
 | resolve | --params-file：product_url、target_market；检查解析能力与免费政策，公开HTTP(S)商品链接不按平台预拦截，保留变体参数并交给服务端尝试，创建一次并有限等待 |
-| import-product | --params-file：source_task_id、source_kind、title、可选description/specifications/selected_variant/source_urls及images；原终结任务的资料导入，图片用file或公开url，完整合同见[失败补充](product-fallback.md) |
+| import-product | --params-file：source_task_id、source_kind、title、可选description/specifications/selected_variant/source_urls及images；无source_task_id时须传target_market直接创建创作；有source_task_id时补充原终结任务，不能另传市场；图片用file或公开url，完整合同见[失败补充](product-fallback.md) |
 | prepare | --params-file：creation_id、kind、prompt、asset_refs、params、visual_review，可附creative_summary；准备并报价，不自动生成 |
 | generate-video、generate-image | --run-file 原准备state.json，单条另需 --authorization-file 本次授权JSON；批次用 --batch-file 与 --batch-row；重新核查准备、金额、权限和余额，只提交一次 |
 | batch-init | --params-file：已明确确认的固定批次清单；创建本地batch.json，不提交生成 |
@@ -136,7 +136,7 @@ stdout始终为一个JSON对象，stderr用于脱敏诊断；没有通用的“S
 
 ## 4. 原图视频阶段
 
-先resolve取得商品事实；失败或缺必要资料按[浏览器与用户补充](product-fallback.md)通过import-product导入，再download已完成任务的原图并实际看图。**单条在此阶段先给用户展示商品信息和真实商品图，完成后才设计脚本与prepare；不是只在工具内部看图，也不能等quote_ready后才首次输出。**download返回的assets.local_path/manifest_file是取图依据，JSON本身不是图片。选取能辨认商品/已确定变体的主图，至少展示一张；需要用户确定颜色时展示必要候选图、图号及变体，不默选未知款式。
+有商品链接时先resolve取得商品事实；只有图片与商品信息时核验product_import能力，用import-product直接创建，不要求原解析任务。有链接但失败或缺必要资料按[浏览器与用户补充](product-fallback.md)通过import-product导入，再download已完成任务的原图并实际看图。**单条在此阶段先给用户展示商品信息和真实商品图，完成后才设计脚本与prepare；不是只在工具内部看图，也不能等quote_ready后才首次输出。**download返回的assets.local_path/manifest_file是取图依据，JSON本身不是图片。选取能辨认商品/已确定变体的主图，至少展示一张；需要用户确定颜色时展示必要候选图、图号及变体，不默选未知款式。
 
 宿主使用实际支持的图片附件、图集或图片嵌入输出。能渲染本地媒体时用返回的真实绝对路径；远端/云端产物须通过用户可达的宿主媒体通道，不能把远端磁盘路径当用户可见图片。没有内嵌能力时可提供可打开的实际图片预览并明确说明；只有asset_ref、路径文字、图片编号或“已展示”的陈述均不算完成。不得编造豆包等宿主专用协议或假设Markdown本地路径一定可显示。
 

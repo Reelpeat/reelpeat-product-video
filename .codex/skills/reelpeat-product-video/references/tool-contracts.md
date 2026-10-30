@@ -2,7 +2,7 @@
 
 默认官方Node客户端见[客户端执行合同](client-usage.md)。本页保留MCP兼容入口与同一组公开业务字段；选择MCP时才按工具Schema调用，禁止因写请求结果未知而跨入口重提。
 
-本页按当前 MCP Schema 与对客路由维护；1.4.0新增资料导入，既有八个基础工具保持兼容，不代表某个部署已经开启能力。工具实际 Schema 和可核验的服务能力优先。通过配套连接器调用，不从本页猜测域名或自行访问内部 API。
+本页按当前 MCP Schema 与对客路由维护；1.5.0支持图片直接创建，兼容1.4.0的资料补充，既有八个基础工具保持兼容，不代表某个部署已经开启能力。工具实际 Schema 和可核验的服务能力优先。通过配套连接器调用，不从本页猜测域名或自行访问内部 API。
 
 ## 公开工具
 
@@ -13,7 +13,7 @@
 | `reelpeat_get_context` | `{}` | `data.account_id/workspace/capabilities/capability_details`；另返回当前 Key 的 `scopes` 与 `max_credits_per_generation`，响应 `no-store`。能力按本次 Key、开关及已发布目录读取，不是资金预占或后续受理保证；旧部署缺字段时不猜 |
 | `reelpeat_get_balance` | `{}` | `data.available_credits/frozen_credits/account_status/as_of`；要求 `account:read`，零余额可查询，不隐式开户 |
 | `reelpeat_resolve_product` | `product_url, target_market, idempotency_key` | `data.creation_id/task_id/status/result/poll_after_seconds`；MCP 对应 `POST /api/open/v1/products/resolve`，不是旧方案中的 POST creations |
-| `reelpeat_import_product` | `source_task_id, source_kind, title, images, idempotency_key`，可选 `description/specifications/selected_variant/source_urls` | `POST /api/open/v1/products/import`；绑定本人已终结解析任务的原creation，独立幂等任务；images每项为公开url或data_base64，不接受本地路径；免费政策及大小限制须由fallback_import能力核验 |
+| `reelpeat_import_product` | `source_kind, title, images, idempotency_key`；直接创建传`target_market`，补充传`source_task_id`，二选一，可选 `description/specifications/selected_variant/source_urls` | `POST /api/open/v1/products/import`；直接模式新建creation，补充模式绑定本人已终结解析任务的原creation，独立幂等任务；images每项为公开url或data_base64，不接受本地路径；直接模式核验product_import，补充模式核验fallback_import的免费政策及大小限制 |
 | `reelpeat_prepare_generation` | `creation_id, kind, prompt, asset_refs, params, idempotency_key` | `data.preparation_id/creation_id/kind/status/poll_after_seconds` 等；随后把 preparation ID 作为 `task_id` 查询。kind 为 image 或 video；字段为 `params`，不是 `specification` |
 | `reelpeat_generate_image` | `creation_id, preparation_id, quote_id, idempotency_key, max_credits` | 单张图片任务；不接受额外 prompt、规格或素材，使用准备快照 |
 | `reelpeat_generate_video` | 与图片提交相同 | 视频任务；不在 MCP 请求中等待视频完成 |
@@ -27,6 +27,7 @@
 新增能力发现合同保持 `capabilities` 为字符串列表，详情按同名键读取：
 
 - `product_parse`：`billing.status=not_billable/credits=0` 表示解析不扣 R 币。`url_policy=public_http`、`platforms=["*"]` 表示公开 HTTP(S) 商品链接均可提交尝试，`availability=determined_by_parse_result` 表示以实际来源响应判断可用性；不是保证所有网站都能抓取成功。旧清单列出的平台、域名或路径仅作为历史提示，不用它提前拒绝 Lazada、Amazon、短链或其他商城；权限、URL安全与缺失事实检查仍保留。
+- `product_import`：无需商品链接／原解析任务即可免费导入图片创建创作，需target_market；详情包含source_kinds、image_inputs、max_images、max_total_image_bytes和免费billing。缺此独立能力时不尝试直接创建，即使旧服务有fallback_import也不替代。
 - `product_parse.fallback_import`：明确 `source_kinds`、`image_inputs`、`max_images`、`max_total_image_bytes` 及免费billing，才可提交用户或浏览器补充资料；缺字段的旧服务不支持导入，不能仅凭新版Skill推断已部署。服务最多9张、新图片总量8MiB，客户端本地file会转为data_base64。
 - `video_generation`：`specifications` 每项含 `model/resolution/sku_id/durations`，与同级 `ratios/generate_audio/camera_fixed/required_params` 组合出完整 `params`。只使用清单实际包含的组合和整数秒数。规格取执行能力与当前目录、业务倍率的交集，不把目录中的其他 SKU 当成支持值。
 - 视频 `billing.preparation_credits=0/quote_required=true` 表示准备不扣 R 币、生成仍须取得正式 Quote。能力发现不创建 Quote、不返回本次正式价格，也不证明余额足够。Key 额度与费用授权仍分别校验。
