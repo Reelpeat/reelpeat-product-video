@@ -256,6 +256,6 @@ Windows 原生终端与 WSL 分开验收。客户端在 Windows 使用系统 Pow
 
 ## 商品生图参数
 
-独立商品生图和视频前补图都沿用prepare、generate-image、task/resume和download。先核验context包含image_generation，详情中specifications给出sku_id/model/resolution/size/quality，required_params为[sku_id]、quantity=1，准备免费且须正式Quote。图片params只传`{"sku_id":"本次实际公布的SKU"}`，不传model、size、quality、视频参数或数量；模型规格由服务端目录冻结。详见[商品生图](image-creation.md)。
+独立商品生图和视频前补图都沿用prepare、generate-image、task/resume和download。先核验context包含image_generation，详情中default_plan为`{"params":{},"quantity":1}`且quantity=1，准备免费且须正式Quote。默认图片params传`{}`或省略，不传模型、尺寸、质量或数量；服务端确定并冻结方案，再取得正式报价。宿主只向用户展示生成方案、数量和正式报价，不展示技术参数。显式sku_id仅保留旧调用兼容，不作为默认交互或无默认合同的绕过方式。详见[商品生图](image-creation.md)。
 
 生成图下载并实际核验后，视频prepare使用同一creation与生成图asset_ref，重新记录visual_review及视频正式报价；不要重新上传生成图或复用图片Quote。旧Key缺images:generate时说明需由用户明确编辑授权或创建新Key，不静默扩权。新Key页面默认全部五项公开权限，API新建省略scopes也默认全部，但仍必须明确单次上限和有效期；显式限权与旧Key不改变。

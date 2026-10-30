@@ -515,3 +515,44 @@ test('显式env模式也使用默认或用户提供的网关，不修改凭据�
     else process.env.REELPEAT_API_KEY = previous;
   }
 });
+
+test('默认生图方案省略技术参数仍取得正式报价，确认前零生成且授权后只提交一次', async t => {
+  // 中文注释：仅新服务公布默认合同后使用空参数；验证旧服务限制不被静默绕过。
+  const f = await fixture(t, { image: true }), active = await session(f.options);
+  active.context.capability_details.image_generation.default_plan = { params: {}, quantity: 1 };
+  for (const omit of [false, true]) {
+    const input = { ...preparationInput(), kind: 'image', params: {} };
+    if (omit) delete input.params;
+    const prepared = await startOperation('prepare', input, f.options, active);
+    assert.equal(prepared.result_type, 'quote_ready');
+    const posted = f.requests.filter(r => r.method === 'POST' && r.path.endsWith('/preparations')).at(-1);
+    assert.deepEqual(posted.body.params ?? {}, {});
+    await assert.rejects(generate('generate-image', prepared.recovery_file, null, f.options, active),
+      error => error.code === 'AUTHORIZATION_REQUIRED');
+    assert.equal(f.dispatches(), omit ? 1 : 0);
+    const authFile = path.join(f.root, 'default-auth-' + omit + '.json');
+    await atomicJSON(authFile, authorization(await readJSON(prepared.recovery_file)));
+    await generate('generate-image', prepared.recovery_file, authFile, f.options, active);
+    await generate('generate-image', prepared.recovery_file, authFile, f.options, active);
+    assert.equal(f.dispatches(), omit ? 2 : 1);
+  }
+});
+
+test('默认合同缺失或损坏不猜参数、不重试收费；显式SKU兼容原合同', async t => {
+  // 中文注释：畸形参数或默认能力不得落准备请求，保持已有视频和显式图片路径。
+  const f = await fixture(t, { image: true }), active = await session(f.options);
+  const cap = active.context.capability_details.image_generation;
+  for (const plan of [undefined, {}, { params: {}, quantity: 2 }, { params: [], quantity: 1 },
+    { params: { size: 'auto' }, quantity: 1 }]) {
+    cap.default_plan = plan;
+    await assert.rejects(startOperation('prepare', { ...preparationInput(), kind: 'image', params: {} }, f.options, active),
+      error => error.code === 'IMAGE_DEFAULT_UNAVAILABLE');
+  }
+  cap.default_plan = { params: {}, quantity: 1 };
+  for (const params of [null, [], { size: 'auto' }, { sku_id: 'unknown' }])
+    await assert.rejects(startOperation('prepare', { ...preparationInput(), kind: 'image', params }, f.options, active));
+  assert.equal(f.requests.filter(r => r.method === 'POST').length, 0);
+  const result = await startOperation('prepare', { ...preparationInput(), kind: 'image',
+    params: { sku_id: 'fixture-image' } }, f.options, active);
+  assert.equal(result.result_type, 'quote_ready');
+});

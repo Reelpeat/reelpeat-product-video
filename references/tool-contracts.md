@@ -32,7 +32,7 @@
 - `video_generation`：`specifications` 每项含 `model/resolution/sku_id/durations`，与同级 `ratios/generate_audio/camera_fixed/required_params` 组合出完整 `params`。只使用清单实际包含的组合和整数秒数。规格取执行能力与当前目录、业务倍率的交集，不把目录中的其他 SKU 当成支持值。
 - 视频 `billing.preparation_credits=0/quote_required=true` 表示准备不扣 R 币、生成仍须取得正式 Quote。能力发现不创建 Quote、不返回本次正式价格，也不证明余额足够。Key 额度与费用授权仍分别校验。
 
-支持图片生成能力的服务会公布image_generation及完整图片规格；没有图片能力详情时不补图；官方帮助入口尚未交付时仍从用户已知账户页配置，不拼造 URL。
+支持默认生图的服务会公布image_generation.default_plan及正式报价合同；没有图片能力详情时不补图；官方帮助入口尚未交付时仍从用户已知账户页配置，不拼造 URL。
 
 视频准备的 `params` 必须显式含六项，不能只写时长或靠后端默认补齐：
 
@@ -49,7 +49,7 @@
 
 这是结构示例，**只有实际部署明确开放这一组合时才可用**。代码可识别 mini/fast/standard；对应用户档位分别是轻量模型/标准模型/专业模型，用户选项与接口映射按[模型选档与接口映射](creative-guidance.md)，MCP传参保持原值。视频时长整数 4–15 秒，比率 16:9、9:16 或 1:1，仍以本次能力清单为准，分辨率受模型组合限制。不能从代码识别范围推断已售规格。
 
-图片 `params` 只接受 `{"sku_id":"服务明确开放的图片SKU"}`；不传 model/size/quality/resolution，模型调用规格由可信目录确定。从context的image_generation.specifications选择实际SKU；缺目录或SKU时暂停生图，不套用历史测试SKU或价格。
+图片默认 `params={}`或省略，须先核验context的image_generation.default_plan；执行规格由服务端确定并在报价前冻结。向用户只展示生成方案、数量和正式报价，不展示模型、尺寸、质量或SKU。旧的显式`{"sku_id":"服务明确开放的图片SKU"}`调用保留兼容，不作为无默认合同时的自动降级。缺默认方案或正式报价合同则暂停，不套用历史价格。
 
 ### 任务结果
 
@@ -98,4 +98,4 @@
 
 2026-10-23 新实现按当前 Key、功能开关、已发布目录与业务倍率提供解析/视频能力详情；旧部署仍可能返回空清单。**只有本次实际响应包含所需能力及完整详情，才能开始新解析/准备/生成；空清单仍保持关闭。** 商品图继续通过统一任务查询的短期预览实际查看。图片能力与官方帮助入口尚未提供时不猜 SKU、价格或 URL。不同宿主的图片查看、视频预览和凭据配置需分别验证，不把离线包校验说成已上架。
 
-图片能力详情：`image_generation.specifications`每项包含sku_id/model/resolution/size/quality；required_params=[sku_id]、quantity=1、max_images=9，billing明确preparation_credits=0、quote_required=true和rcoin。scope为images:generate，独立于videos:generate。能力规格不是正式价格，必须prepare后查询当前Quote。
+图片默认合同：`image_generation.default_plan={"params":{},"quantity":1}`，无需用户选择技术参数。兼容字段`image_generation.specifications`每项包含sku_id/model/resolution/size/quality；required_params=[sku_id]、quantity=1、max_images=9，billing明确preparation_credits=0、quote_required=true和rcoin。scope为images:generate，独立于videos:generate。能力规格不是正式价格，必须prepare后查询当前Quote。

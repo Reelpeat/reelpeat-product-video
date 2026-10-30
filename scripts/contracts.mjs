@@ -52,13 +52,22 @@ export function validatePrepare(input, context) {
       cap.billing?.preparation_credits !== 0 || cap.billing.quote_required !== true)
     fail('CAPABILITY_UNAVAILABLE', '当前没有该阶段完整的能力与准备收费合同。');
   if (input.kind === 'image') {
-    // 中文注释：仅选择本次公布的单张图片SKU，模型、尺寸和质量由服务端准备时封存。
+    // 中文注释：仅服务端明确公布默认方案时允许省略参数，不由客户端猜模型或价格。
+    const params = input.params === undefined ? {} : input.params;
+    if (!params || typeof params !== 'object' || Array.isArray(params))
+      fail('INVALID_IMAGE_PARAMS', '图片参数须为空对象或只包含已公布的sku_id。');
+    if (Object.keys(params).length === 0) {
+      const plan = cap.default_plan;
+      if (cap.quantity !== 1 || plan?.quantity !== 1 || !plan.params ||
+          typeof plan.params !== 'object' || Array.isArray(plan.params) || Object.keys(plan.params).length)
+        fail('IMAGE_DEFAULT_UNAVAILABLE', '当前服务尚未提供可正式报价的默认生图方案，请更新服务或保留原任务。');
+      return;
+    }
+    // 中文注释：旧的显式SKU请求继续校验原目录合同，不改变已有调用参数。
     if (!Array.isArray(cap.specifications) || !cap.specifications.length || cap.quantity !== 1 ||
         cap.required_params?.length !== 1 || cap.required_params[0] !== 'sku_id')
       fail('IMAGE_CATALOG_UNAVAILABLE', '当前公开图片目录合同不完整，请查询历史图片或使用商品原图。');
-    const params = input.params;
-    if (!params || typeof params !== 'object' || Array.isArray(params) ||
-        Object.keys(params).length !== 1 || typeof params.sku_id !== 'string')
+    if (Object.keys(params).length !== 1 || typeof params.sku_id !== 'string')
       fail('INVALID_IMAGE_PARAMS', '图片参数只能包含已公布的sku_id。');
     const specification = cap.specifications.find(item => item.sku_id === params.sku_id);
     if (!specification || !['model', 'resolution', 'size', 'quality'].every(key =>

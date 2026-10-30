@@ -25,7 +25,7 @@ python3 tools/package_reelpeat_skill.py --target workbuddy --output output/reelp
 
 ## 已知边界及发布前检查
 
-- 图片生成只使用当前context公布的规格及正式Quote；旧服务缺图片合同则不发起新生图。独立生图与视频前补图需分别验证生成、交付、引用复用及费用授权。
+- 图片生成默认使用当前context公布的服务端default_plan及正式Quote；确认时只展示生成方案、数量和正式报价，不展示技术参数；旧服务缺图片合同则不发起新生图。独立生图与视频前补图需分别验证生成、交付、引用复用及费用授权。
 - Codex当前项目路径已有测试依据；WorkBuddy包结构验证不能替代WorkBuddy实机安装。Windows ACL和其他Agent/云端的权限、配置页及媒体验收不能宣称已通过。
 - 当前未选定开源许可证，不包含LICENSE；代码公开不代表已授予开源使用许可，后续由版权方决定。
 - 本仓库只发布Skill源码及必要配套文件，不包含真实商品下载、生成结果、用户任务记录或有效API Key。
