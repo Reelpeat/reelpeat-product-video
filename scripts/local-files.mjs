@@ -36,7 +36,8 @@ async function windowsACL(target, directory, write = false) {
   `;
   try {
     await execute('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
-      { env: { ...process.env, REELPEAT_PRIVATE_TARGET: target,
+      // 中文注释：Windows PowerShell 5 不加载宿主 PowerShell 7 的同名模块；只使用系统自带安全模块路径。
+      { windowsHide: true, env: { ...process.env, PSModulePath: path.join(process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'Modules'), REELPEAT_PRIVATE_TARGET: target,
         REELPEAT_PRIVATE_WRITE: write ? '1' : '0', REELPEAT_PRIVATE_DIRECTORY: directory ? '1' : '0' } });
   } catch { fail('PRIVATE_ACL_FAILED', '无法设置或核验私有ACL，请使用宿主受控凭据入口。'); }
 }

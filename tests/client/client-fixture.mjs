@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
 const clientScripts = new URL(existsSync(new URL('../../SKILL.md', import.meta.url))
   ? '../../scripts/' : '../../.codex/skills/reelpeat-product-video/scripts/', import.meta.url);
 export const clientModule = name => import(new URL(name, clientScripts));
-const { atomicJSON } = await clientModule('local-files.mjs');
+const { atomicJSON, protectPrivate } = await clientModule('local-files.mjs');
 
 export const entry = fileURLToPath(new URL('reelpeat.mjs', clientScripts));
 export const secret = 'synthetic-client-fixture-A';
@@ -27,12 +27,14 @@ export const billing = (paid = false) => ({ status: paid ? 'settled' : 'pending'
 // 中文注释：仅本机随机端口的合成服务，没有真实数据库、用户或供应商。
 export async function fixture(t, options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'reelpeat 客户端 test '));
+  // 中文注释：Windows 临时目录默认继承共享 ACL；夹具根目录也保存合成授权，必须先真实保护。
+  if (process.platform === 'win32') await protectPrivate(root, true);
   const requests = [], tasks = new Map(), accepted = new Map();
   let server, dispatches = 0, lost = false, mediaFails = options.mediaFails || 0;
   const context = () => ({ account_id: options.account || 'fixture-A', workspace: 'personal',
-    scopes: ['account:read', 'products:read', 'tasks:read', 'videos:generate'],
+    scopes: ['account:read', 'products:read', 'tasks:read', 'videos:generate', ...(options.image ? ['images:generate'] : [])],
     max_credits_per_generation: options.limit ?? 100,
-    capabilities: options.empty ? [] : ['product_import', 'product_parse', 'video_generation'],
+    capabilities: options.empty ? [] : ['product_import', 'product_parse', 'video_generation', ...(options.image ? ['image_generation'] : [])],
     capability_details: options.empty ? {} : {
       product_import: { source_kinds: ['user_supplied', 'browser_observed'], image_inputs: ['url', 'data_base64'],
         max_images: 9, max_total_image_bytes: 8 * 1024 * 1024, target_market_required: true,
@@ -45,18 +47,24 @@ export async function fixture(t, options = {}) {
       video_generation: { specifications: [{ model: 'mini', resolution: '480p', durations: [15], sku_id: 'fixture-mini' }],
         ratios: ['9:16'], generate_audio: [true, false], camera_fixed: [true, false],
         billing: { preparation_credits: 0, quote_required: true, currency: 'rcoin' } },
+      // 中文注释：仅显式生图测试公布图片合同，旧服务兼容与缺能力测试仍保持原样。
+      ...(options.image ? { image_generation: { specifications: [{ sku_id: 'fixture-image', model: 'gpt-image-2.5',
+        resolution: '1024x1024', size: '1024x1024', quality: 'low' }], required_params: ['sku_id'], quantity: 1,
+        billing: { preparation_credits: 0, quote_required: true, currency: 'rcoin' } } } : {}),
     } });
   // 中文注释：批量隔离场景每行独立creation；原单条夹具保持原身份。
-  const taskResult = (kind, id, creationId = 'creation-fixture') => ({
+  const taskResult = (kind, id, creationId = 'creation-fixture', preparedKind = 'video') => ({
     task_id: id, creation_id: creationId, kind, status: options.running ? 'running' : 'completed',
-    poll_after_seconds: options.pollSeconds ?? 0, billing: kind === 'video' ? billing(true) : billing(),
-    result: kind === 'preparation' ? { preparation_id: id, kind: 'video', quote_id: 'quote-fixture',
+    poll_after_seconds: options.pollSeconds ?? 0, billing: ['video', 'image'].includes(kind) ? billing(true) : billing(),
+    result: kind === 'preparation' ? { preparation_id: id, kind: preparedKind,
+      quote_id: preparedKind === 'image' ? 'quote-image' : 'quote-fixture',
       input_fingerprint: 'f'.repeat(64), quote_expires_at: new Date(Date.now() + (options.expired ? -1000 : 3600000)).toISOString() }
       : kind === 'product_parse' ? { title: '合成黑色套装', image_refs: [
         { index: 0, asset_ref: 'opaque-original-black', preview_url: base() + 'media/image?signature=synthetic' },
         ...(options.extraImage ? [{ index: 1, asset_ref: 'opaque-original-side',
           preview_url: base() + 'media/image?signature=synthetic' }] : [])] }
-        : { video_url: base() + 'media/video?signature=synthetic' },
+        : kind === 'image' ? { asset_ref: 'opaque-generated-' + id, preview_url: base() + 'media/image?signature=synthetic' }
+          : { video_url: base() + 'media/video?signature=synthetic' },
   });
   const base = () => 'http://127.0.0.1:' + server.address().port + '/';
   server = createServer(async (request, response) => {
@@ -82,16 +90,16 @@ export async function fixture(t, options = {}) {
     if (request.method === 'POST') {
       if (!accepted.has(record.key)) {
         const kind = record.path.endsWith('/resolve') || record.path.endsWith('/import') ? 'product_parse'
-          : record.path.endsWith('/preparations') ? 'preparation' : 'video';
+          : record.path.endsWith('/preparations') ? 'preparation' : record.path.endsWith('/images') ? 'image' : 'video';
         const id = kind + '-' + (tasks.size + 1);
         const creationId = options.multi ? (kind === 'product_parse' ? 'creation-' + id
           : record.path.split('/')[5]) : 'creation-fixture';
-        const task = taskResult(kind, id, creationId);
+        const task = taskResult(kind, id, creationId, body?.kind);
         // 中文注释：原抓取失败后导入仍能完成，用于验证兜底不会重复解析或收费。
         if (options.parseFails && record.path.endsWith('/resolve'))
           Object.assign(task, { status: 'failed', error_code: 'PRODUCT_PARSE_FAILED', result: {} });
         tasks.set(id, task); accepted.set(record.key, id);
-        if (kind === 'video') dispatches++;
+        if (['video', 'image'].includes(kind)) dispatches++;
       }
       const id = accepted.get(record.key), task = tasks.get(id);
       if (options.loseOnce && !lost && (task.kind === options.loseOnce ||
@@ -112,7 +120,7 @@ export async function fixture(t, options = {}) {
     const creationId = options.multi ? record.path.split('/').at(-1) : 'creation-fixture';
     const ownTasks = [...tasks.values()].filter(task => task.creation_id === creationId);
     send({ creation_id: creationId, status: 'completed', tasks: ownTasks,
-      billing: ownTasks.some(task => task.kind === 'video') ? billing(true)
+      billing: ownTasks.some(task => ['video', 'image'].includes(task.kind)) ? billing(true)
         : { ...billing(), quoted_credits: null, consumed_credits: 0 } });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

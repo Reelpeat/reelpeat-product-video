@@ -12,6 +12,49 @@ const { saveCredentials, loadCredentials, configLocation, normalizeKey, normaliz
 const { downloadOperation, downloadMedia } = await clientModule('media.mjs');
 const { createAdapter } = await clientModule('api-client.mjs');
 
+test('独立商品生图正式报价授权后交付图片，同一请求恢复不重复消费并可用于后续视频', async t => {
+  // 中文注释：图片与视频分别准备、报价和授权，生成图引用直接复用，不伪造第二次商品解析。
+  const f = await fixture(t, { image: true }), active = await session(f.options);
+  const input = { ...preparationInput(), kind: 'image', params: { sku_id: 'fixture-image' } };
+  const prepared = await startOperation('prepare', input, f.options, active);
+  assert.equal(prepared.result_type, 'quote_ready');
+  await assert.rejects(generate('generate-image', prepared.recovery_file, null, f.options, active),
+    error => error.code === 'AUTHORIZATION_REQUIRED');
+  assert.equal(f.dispatches(), 0);
+  const authFile = path.join(f.root, 'image-authorization.json');
+  await atomicJSON(authFile, authorization(await readJSON(prepared.recovery_file)));
+  const generated = await generate('generate-image', prepared.recovery_file, authFile, f.options, active);
+  assert.equal(generated.task_status, 'completed');
+  assert.equal(generated.billing.consumed_credits, 8);
+  await generate('generate-image', prepared.recovery_file, authFile, f.options, active);
+  assert.equal(f.dispatches(), 1);
+  const image = await downloadOperation(prepared.recovery_file, active);
+  assert.equal(image.result_type, 'delivered');
+  assert.equal(image.assets[0].type, 'image');
+  assert.ok((await readFile(image.assets[0].local_path)).length > 0);
+  assert.equal(f.requests.filter(r => r.method === 'POST' && r.path.endsWith('/videos')).length, 0);
+  const ref = image.assets[0].asset_ref;
+  const video = await startOperation('prepare', { ...preparationInput(), asset_refs: [ref],
+    visual_review: { checked_asset_refs: [ref], source: '隔离模拟已核验生成图' } }, f.options, active);
+  assert.equal(video.result_type, 'quote_ready');
+  const videoAuth = path.join(f.root, 'video-authorization.json');
+  await atomicJSON(videoAuth, authorization(await readJSON(video.recovery_file)));
+  assert.equal((await generate('generate-video', video.recovery_file, videoAuth, f.options, active)).task_status, 'completed');
+  assert.equal(f.dispatches(), 2);
+});
+
+test('图片规格只接受当前目录SKU，未知、额外规格或缺失目录均在提交前阻断', async t => {
+  // 中文注释：客户端拒绝篡改模型和费用字段，旧服务缺图片能力时不发送准备请求。
+  const f = await fixture(t, { image: true }), active = await session(f.options);
+  for (const params of [{}, { sku_id: 'unknown' }, { sku_id: 'fixture-image', quality: 'high' }, []]) {
+    await assert.rejects(startOperation('prepare', { ...preparationInput(), kind: 'image', params }, f.options, active));
+  }
+  active.context.capability_details.image_generation.specifications = [];
+  await assert.rejects(startOperation('prepare', { ...preparationInput(), kind: 'image',
+    params: { sku_id: 'fixture-image' } }, f.options, active), error => error.code === 'IMAGE_CATALOG_UNAVAILABLE');
+  assert.equal(f.requests.filter(r => r.method === 'POST').length, 0);
+});
+
 test('商品解析不按平台或旧能力白名单预拦截，完整保留Lazada和其他商城链接', async t => {
   const f = await fixture(t), active = await session(f.options);
   const urls = [

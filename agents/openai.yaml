@@ -1,4 +1,4 @@
 interface:
-  display_name: "Reelpeat 电商视频创作"
-  short_description: "抖音、TikTok、亚马逊等电商商品视频创作，支持图片素材与表格批量，先看图和报价。"
-  default_prompt: "使用 $reelpeat-product-video 从商品链接、图片资料或商品表制作电商视频；尚无需求时先引导使用与配置，已有需求直接处理；先展示商品图、脚本和正式报价，确认后再生成。"
+  display_name: "Reelpeat 电商图片与视频创作"
+  short_description: "商品主图、白底图、场景图、海报与带货视频，支持独立生图和视频前补图，先看方案与报价。"
+  default_prompt: "使用 $reelpeat-product-video 从商品链接、图片资料或商品表制作商品图片或电商视频；尚无需求时先引导使用与配置，已有需求直接处理；先展示商品图、图片方案或视频脚本和正式报价，确认后再生成。"

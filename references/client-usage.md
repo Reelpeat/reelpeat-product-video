@@ -1,6 +1,6 @@
 # 官方 Node.js 客户端执行合同
 
-本文件与 Skill v1.5.1 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。当前默认原商品图生成视频；图片目录合同尚未开放时不发起新图片准备/生成，可查询和下载本人历史图片。
+本文件与 Skill v1.5.1 同包。客户端只访问公开 API，不依赖 MCP、原项目仓库、Python、npm 安装或兄弟 Skill。可独立生成商品图，或生成补图后继续视频；图片目录合同未开放时不发起新图片准备/生成，仍可查询和下载本人历史图片。
 
 ## 1. 先定位，再执行
 
@@ -253,3 +253,9 @@ batch-status按每个creation唯一账务返回used_or_reserved_credits和remain
 | 云端 / 容器 / SSH远端 | 明确实际执行位置；安全secret、持久化、配置页转发及产物交付须逐一可用 | 未实测；没有安全配置和用户可达产物通道时阻塞，不能交付远端localhost当成本机页面 |
 
 Windows 原生终端与 WSL 分开验收。客户端在 Windows 使用系统 PowerShell 设置并核验私有 ACL，缺工具或失败则停止；本轮仅在 macOS 跑隔离合同测试，未执行 Windows ACL 分支。完整兼容矩阵及 AC-01～10 见项目改造方案，只有对应宿主/版本/系统有实际证据后才能声明支持。
+
+## 商品生图参数
+
+独立商品生图和视频前补图都沿用prepare、generate-image、task/resume和download。先核验context包含image_generation，详情中specifications给出sku_id/model/resolution/size/quality，required_params为[sku_id]、quantity=1，准备免费且须正式Quote。图片params只传`{"sku_id":"本次实际公布的SKU"}`，不传model、size、quality、视频参数或数量；模型规格由服务端目录冻结。详见[商品生图](image-creation.md)。
+
+生成图下载并实际核验后，视频prepare使用同一creation与生成图asset_ref，重新记录visual_review及视频正式报价；不要重新上传生成图或复用图片Quote。旧Key缺images:generate时说明需由用户明确编辑授权或创建新Key，不静默扩权。新Key页面默认全部五项公开权限，API新建省略scopes也默认全部，但仍必须明确单次上限和有效期；显式限权与旧Key不改变。

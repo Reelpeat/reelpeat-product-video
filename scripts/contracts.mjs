@@ -52,8 +52,19 @@ export function validatePrepare(input, context) {
       cap.billing?.preparation_credits !== 0 || cap.billing.quote_required !== true)
     fail('CAPABILITY_UNAVAILABLE', '当前没有该阶段完整的能力与准备收费合同。');
   if (input.kind === 'image') {
-    // 中文注释：当前服务未公布图片目录，不猜测未来目录结构或套用历史SKU。
-    fail('IMAGE_CATALOG_UNAVAILABLE', '当前公开图片目录合同未就绪；可查询历史图片或使用商品原图。');
+    // 中文注释：仅选择本次公布的单张图片SKU，模型、尺寸和质量由服务端准备时封存。
+    if (!Array.isArray(cap.specifications) || !cap.specifications.length || cap.quantity !== 1 ||
+        cap.required_params?.length !== 1 || cap.required_params[0] !== 'sku_id')
+      fail('IMAGE_CATALOG_UNAVAILABLE', '当前公开图片目录合同不完整，请查询历史图片或使用商品原图。');
+    const params = input.params;
+    if (!params || typeof params !== 'object' || Array.isArray(params) ||
+        Object.keys(params).length !== 1 || typeof params.sku_id !== 'string')
+      fail('INVALID_IMAGE_PARAMS', '图片参数只能包含已公布的sku_id。');
+    const specification = cap.specifications.find(item => item.sku_id === params.sku_id);
+    if (!specification || !['model', 'resolution', 'size', 'quality'].every(key =>
+        typeof specification[key] === 'string' && specification[key].trim()))
+      fail('UNSUPPORTED_SPECIFICATION', '所选图片规格不在本次正式能力清单中。');
+    return;
   }
   const params = input.params;
   if (!params || typeof params !== 'object' || Array.isArray(params)) fail('INVALID_PARAMS', 'params须为对象。');

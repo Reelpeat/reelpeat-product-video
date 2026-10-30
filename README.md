@@ -1,6 +1,6 @@
-# Reelpeat 电商视频创作 Skill
+# Reelpeat 电商图片与视频创作 Skill
 
-发商品链接，或商品图片与信息，让 AI 助手设计脚本，Reelpeat 完成视频制作。支持单条创作和表格批次，先看方案与正式报价，确认后再生成。
+发商品链接，或商品图片与信息，让 AI 助手设计商品主图、场景图、海报或视频脚本，Reelpeat 完成制作。支持单条创作和表格批次，先看方案与正式报价，确认后再生成。
 
 ![Reelpeat 能力介绍：从一个商品到一批商品视频](docs/images/skill-capabilities.png)
 
@@ -20,6 +20,11 @@ https://github.com/Reelpeat/reelpeat-product-video
 下载与更新说明：[Reelpeat 官方 GitHub](https://github.com/Reelpeat/reelpeat-product-video)。通过技能市场安装的优先原平台更新；需要时可选择官方最新版，保留已有 Key 配置和任务记录。
 
 ## 开始制作
+
+**单独生成商品图：**
+
+> 用这张商品原图生成一张马来西亚家庭厨房场景图，保持同款黑色套装。先给我看方案和正式报价，只生成图片。
+
 
 **商品链接：**
 

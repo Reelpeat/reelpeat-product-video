@@ -178,7 +178,8 @@ test('CLI配置启动及时交还地址，用户保存后同会话配置检查�
   const confirmationId = (await response.text()).match(/name="confirmation_id" value="([a-f0-9]+)"/)[1];
   const saved = await fetch(url, { method: 'POST', headers: { Origin: new URL(url).origin },
     body: new URLSearchParams({ csrf, action: 'save', confirmation_id: confirmationId }) });
-  assert.equal(saved.status, 200);
+  // 中文注释：失败时保留服务端已脱敏的错误码，便于区分权限与网络问题。
+  assert.equal(saved.status, 200, await saved.text());
   const status = await cli(['auth', 'status', '--setup-file', launched.value.setup_file]);
   assert.equal(status.value.setup_status, 'completed');
   assert.deepEqual(status.value.next_action, { operation: 'doctor', config: destination });
@@ -201,8 +202,8 @@ test('失败配置保留旧文件；会话自然超时关闭，不留常驻进�
   assert.equal(response.status, 400);
   assert.match(await response.text(), /AUTH_CHECK_FAILED/);
   assert.equal(await readFile(f.config, 'utf8'), before);
-  // 中文注释：过期状态异步落盘，等待实际条件而非固定睡眠，避免CI磁盘调度造成偶发失败。
-  const deadline = performance.now() + 2000;
+  // 中文注释：Windows 真实 ACL 写入会启动系统进程，允许其完成后再核验过期状态。
+  const deadline = performance.now() + (process.platform === 'win32' ? 30000 : 2000);
   let status;
   do {
     status = (await readJSON(setupFile)).status;
