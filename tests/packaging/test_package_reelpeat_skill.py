@@ -13,7 +13,11 @@ from zipfile import ZipFile
 
 import yaml
 
-SPEC = importlib.util.spec_from_file_location("package_skill", Path(__file__).parents[1] / "package_reelpeat_skill.py")
+ROOT = Path(__file__).resolve().parents[2]
+# 中文注释：同一套测试分别覆盖主项目脚本位置与公开仓库tools位置。
+PACKAGER = ROOT / ("tools/package_reelpeat_skill.py" if (ROOT / "SKILL.md").is_file()
+                   else "scripts/package_reelpeat_skill.py")
+SPEC = importlib.util.spec_from_file_location("package_skill", PACKAGER)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 

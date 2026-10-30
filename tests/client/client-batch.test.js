@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { initializeBatch, batchStatus, loadBatch, withBatchLock } from '../../.codex/skills/reelpeat-product-video/scripts/batch.mjs';
-import { session, startOperation, generate, resumeOperation } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
-import { atomicJSON, readJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { fixture, cli, params, preparationInput } from './client-fixture.mjs';
+import { clientModule, fixture, cli, params, preparationInput } from './client-fixture.mjs';
+// 中文注释：通过共享夹具定位待测模块，导出后无需改写测试源码。
+const { initializeBatch, batchStatus, loadBatch, withBatchLock } = await clientModule('batch.mjs');
+const { session, startOperation, generate, resumeOperation } = await clientModule('workflow.mjs');
+const { atomicJSON, readJSON } = await clientModule('local-files.mjs');
 
 // 中文注释：所有批次、商品、授权与费用均为本机合成夹具，不使用真实Key或供应商。
 async function scenario(t, fixtureOptions = {}, batchOptions = {}) {

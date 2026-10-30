@@ -8,7 +8,9 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import yaml
 
-SOURCE = Path(__file__).resolve().parents[1] / ".codex/skills/reelpeat-product-video"
+ROOT = Path(__file__).resolve().parents[1]
+# 中文注释：主项目保留唯一维护源，独立仓库的同一打包器读取根目录Skill。
+SOURCE = ROOT if (ROOT / "SKILL.md").is_file() else ROOT / ".codex/skills/reelpeat-product-video"
 # 中文注释：仅收录官方客户端模块，凭据、状态和临时文件即使混入scripts也不能发布。
 CLIENT_SCRIPTS = (
     "api-client.mjs", "local-files.mjs", "credentials.mjs", "contracts.mjs",
@@ -22,7 +24,8 @@ def package_skill(source: Path, output: Path, target: str) -> Path:
         raise ValueError("不支持的宿主")
     source = source.resolve()
     output = output.resolve()
-    if output.is_relative_to(source):
+    # 中文注释：根目录发布布局只允许在专用output目录写包，仍禁止覆盖技能资源。
+    if output.is_relative_to(source) and not (source == ROOT and output.is_relative_to(source / "output")):
         raise ValueError("发布产物不能覆盖技能源目录")
     # 中文注释：主入口同样执行资源边界检查，必须在读取正文之前拒绝外链。
     _validate_resource(source / "SKILL.md", source)

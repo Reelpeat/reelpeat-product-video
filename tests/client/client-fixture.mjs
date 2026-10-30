@@ -1,12 +1,17 @@
 import { createServer } from 'node:http';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { atomicJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
+// 中文注释：共享夹具按真实入口定位，覆盖主项目维护源和公开仓库根目录两种布局。
+const clientScripts = new URL(existsSync(new URL('../../SKILL.md', import.meta.url))
+  ? '../../scripts/' : '../../.codex/skills/reelpeat-product-video/scripts/', import.meta.url);
+export const clientModule = name => import(new URL(name, clientScripts));
+const { atomicJSON } = await clientModule('local-files.mjs');
 
-export const entry = fileURLToPath(new URL('../../.codex/skills/reelpeat-product-video/scripts/reelpeat.mjs', import.meta.url));
+export const entry = fileURLToPath(new URL('reelpeat.mjs', clientScripts));
 export const secret = 'synthetic-client-fixture-A';
 export const params = { model: 'mini', resolution: '480p', ratio: '9:16',
   duration: 15, generate_audio: true, camera_fixed: false };

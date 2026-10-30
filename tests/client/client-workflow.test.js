@@ -2,14 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, chmod, symlink, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { session, startOperation, resumeOperation, generate, readOperation, exitCode,
-  boundedOutput, loadRun } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
-import { validateAuthorization } from '../../.codex/skills/reelpeat-product-video/scripts/contracts.mjs';
-import { atomicJSON, readJSON, redact } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { saveCredentials, loadCredentials, configLocation, normalizeKey, normalizeBase, verifyIdentity } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
-import { downloadOperation, downloadMedia } from '../../.codex/skills/reelpeat-product-video/scripts/media.mjs';
-import { createAdapter } from '../../.codex/skills/reelpeat-product-video/scripts/api-client.mjs';
-import { fixture, cli, secret, preparationInput, authorization } from './client-fixture.mjs';
+import { clientModule, fixture, cli, secret, preparationInput, authorization } from './client-fixture.mjs';
+// 中文注释：通过共享夹具定位待测模块，导出后无需改写测试源码。
+const { session, startOperation, resumeOperation, generate, readOperation, exitCode,
+  boundedOutput, loadRun } = await clientModule('workflow.mjs');
+const { validateAuthorization } = await clientModule('contracts.mjs');
+const { atomicJSON, readJSON, redact } = await clientModule('local-files.mjs');
+const { saveCredentials, loadCredentials, configLocation, normalizeKey, normalizeBase, verifyIdentity } = await clientModule('credentials.mjs');
+const { downloadOperation, downloadMedia } = await clientModule('media.mjs');
+const { createAdapter } = await clientModule('api-client.mjs');
 
 test('商品解析不按平台或旧能力白名单预拦截，完整保留Lazada和其他商城链接', async t => {
   const f = await fixture(t), active = await session(f.options);

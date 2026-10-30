@@ -19,14 +19,18 @@ class PublicLayoutTest(unittest.TestCase):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
         # 中文注释：导出后的安装说明应指向新仓库，避免后续发布恢复旧地址。
         self.assertIn("https://github.com/Reelpeat/reelpeat-product-video", text)
-        for reference in re.findall(r"\]\(([^)]+)\)", text):
-            # 中文注释：仓库外部链接不当成本地文件；随包资源链接仍必须可解析。
-            if reference.startswith(("https://", "http://", "#")):
-                continue
-            self.assertTrue((ROOT / reference).is_file(), reference)
+        # 中文注释：首页图片和拆出的维护文档都按各自目录核验链接，防止发布后断图或断链。
+        for document in (ROOT / "README.md", ROOT / "docs/maintaining.md"):
+            for reference in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
+                if reference.startswith(("https://", "http://", "#")):
+                    continue
+                self.assertTrue((document.parent / reference).is_file(), reference)
         self.assertIn("https://www.reelpeat.com/", text)
-        self.assertIn("不包含LICENSE", text)
-        skill = ROOT / ".codex/skills/reelpeat-product-video"
+        self.assertIn("不包含LICENSE", (ROOT / "docs/maintaining.md").read_text(encoding="utf-8"))
+        # 中文注释：通用入口必须可直接发现，不依赖任何Agent隐藏目录。
+        self.assertTrue((ROOT / "SKILL.md").is_file())
+        self.assertFalse((ROOT / ".codex").exists())
+        skill = ROOT
         for file in skill.rglob("*"):
             self.assertFalse(file.is_symlink())
             self.assertNotIn(file.name, {"credentials.json", "state.json", ".env", "mcp.json"})

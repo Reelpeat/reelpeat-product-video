@@ -45,8 +45,8 @@ jobs:
                       print('::error title=Reelpeat client test failed::' + message)
           PY
       - name: Test independent packages and public layout
-        run: python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+        run: python -m unittest discover -s tests/packaging -p 'test_*.py' -v
       - name: Build Codex package
-        run: python scripts/package_reelpeat_skill.py --target codex --output output/reelpeat-product-video-codex.zip
+        run: python tools/package_reelpeat_skill.py --target codex --output output/reelpeat-product-video-codex.zip
       - name: Build WorkBuddy package
-        run: python scripts/package_reelpeat_skill.py --target workbuddy --output output/reelpeat-product-video-workbuddy.zip
+        run: python tools/package_reelpeat_skill.py --target workbuddy --output output/reelpeat-product-video-workbuddy.zip

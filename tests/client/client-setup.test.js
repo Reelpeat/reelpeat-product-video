@@ -5,11 +5,12 @@ import { readFile, stat, chmod } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { request as httpRequest } from 'node:http';
-import { accountEntry, startSetupServer } from '../../.codex/skills/reelpeat-product-video/scripts/setup.mjs';
-import { saveCredentials } from '../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs';
-import { readJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { fixture, cli, secret, entry } from './client-fixture.mjs';
-import { main } from '../../.codex/skills/reelpeat-product-video/scripts/reelpeat.mjs';
+import { clientModule, fixture, cli, secret, entry } from './client-fixture.mjs';
+// 中文注释：通过共享夹具定位待测模块，导出后无需改写测试源码。
+const { accountEntry, startSetupServer } = await clientModule('setup.mjs');
+const { saveCredentials } = await clientModule('credentials.mjs');
+const { readJSON } = await clientModule('local-files.mjs');
+const { main } = await clientModule('reelpeat.mjs');
 
 test('只拦截低于最低版本的运行时，不限制更高版本或指定主版本', async t => {
   const f = await fixture(t), original = Object.getOwnPropertyDescriptor(process.versions, 'node');
@@ -335,7 +336,7 @@ test('显式项目模式添加忽略规则，已跟踪的凭据目标拒绝覆�
 
 test('打包源目录不能存凭据，环境模式不接受静默文件来源', async t => {
   const f = await fixture(t);
-  const { configLocation } = await import('../../.codex/skills/reelpeat-product-video/scripts/credentials.mjs');
+  const { configLocation } = await clientModule('credentials.mjs');
   const { entry } = await import('./client-fixture.mjs');
   assert.throws(() => configLocation({ config: path.join(path.dirname(path.dirname(entry)), 'credentials.json') }),
     error => error.code === 'SKILL_CREDENTIAL_FORBIDDEN');

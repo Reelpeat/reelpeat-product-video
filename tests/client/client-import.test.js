@@ -3,11 +3,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile, symlink, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { session, startOperation, resumeOperation, generate } from '../../.codex/skills/reelpeat-product-video/scripts/workflow.mjs';
-import { prepareProductImport } from '../../.codex/skills/reelpeat-product-video/scripts/product-import.mjs';
-import { readJSON, atomicJSON } from '../../.codex/skills/reelpeat-product-video/scripts/local-files.mjs';
-import { downloadOperation } from '../../.codex/skills/reelpeat-product-video/scripts/media.mjs';
-import { fixture, cli, preparationInput, authorization } from './client-fixture.mjs';
+import { clientModule, fixture, cli, preparationInput, authorization } from './client-fixture.mjs';
+// 中文注释：通过共享夹具定位待测模块，导出后无需改写测试源码。
+const { session, startOperation, resumeOperation, generate } = await clientModule('workflow.mjs');
+const { prepareProductImport } = await clientModule('product-import.mjs');
+const { readJSON, atomicJSON } = await clientModule('local-files.mjs');
+const { downloadOperation } = await clientModule('media.mjs');
 
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
 const input = () => ({ source_task_id: 'failed-original', source_kind: 'user_supplied',

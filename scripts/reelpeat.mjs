@@ -25,7 +25,7 @@ const help = {
     '批次：batch-init --params-file <已明确确认的批次JSON>；batch-status --batch-file <batch.json>',
     '批次生成：generate-video --run-file <原准备> --batch-file <batch.json> --batch-row <稳定行ID>'],
   // 中文注释：帮助与运行时采用同一网关优先级，既有配置不会被默认值覆盖。
-  credentials: ['默认生产网关https://www.reelpeat.com/；--api-base <地址>优先于已有配置和默认值',
+  credentials: ['默认服务地址https://www.reelpeat.com/；--api-base <地址>优先于已有配置和默认值',
     '默认用户目录；--auth-source project --work-dir <工作区> 显式项目模式',
     '--config <明确凭据文件>；--auth-source env 显式宿主secret模式，可另传--api-base',
     'auth set [--api-base <地址>]：终端隐藏输入；Agent可用--stdin传入原始Key后结束输入',
