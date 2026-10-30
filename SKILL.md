@@ -1,26 +1,43 @@
 ---
 name: reelpeat-product-video
-description: 将商品链接或用户提供的商品图片与信息制作成带货短视频。使用随包 Reelpeat Node.js 客户端获取商品事实和图片；解析失败时由宿主浏览器或用户补充资料并导入原图，继续设计脚本和按正式报价授权生成；支持表格批次确认、规则授权与任务续接，兼容 Reelpeat MCP。
+description: 面向抖音/抖音小店、TikTok/TikTok Shop、Amazon/亚马逊等电商平台的视频创作。将商品链接、图片、截图或商品资料制作成带货短视频、商品展示、产品演示、推广或图生视频（product video、ecommerce video、product ad、product demo、listing video）；支持跨境多语言、Excel/CSV及飞书/企微/钉钉商品表批量，也处理Reelpeat官方下载、升级、配置、报价、任务查询续接与下载。图片限于原图获取、识别和导入，当前不执行新生图；不用于通用绘画、非商品视频剪辑或平台数据分析。
 metadata:
-  version: "1.5.0"
+  version: "1.5.1"
   author: "Mint"
-  display_name: "商品链接生成带货视频"
-  display_name_en: "Product Link to Sales Video"
-  description_zh: "商品链接、图片与商品信息或商品表制作带货视频；解析失败可用浏览器或用户补充资料与原图，按正式报价确认生成并支持续接。"
-  description_en: "Turn product links or supplied product images and facts into sales videos with browser or user-supplied fallback facts and images, upfront quotes, approvals, and resumable tasks."
+  display_name: "Reelpeat 电商视频创作"
+  display_name_en: "Reelpeat Ecommerce Video Creation"
+  description_zh: "将商品链接、图片或商品表制作成带货、展示与推广视频，适用于抖音、TikTok、亚马逊等电商平台；支持多语言、批次报价与任务续接，图片素材可获取、识别和导入。"
+  description_en: "Create ecommerce product videos, ads, demos and listing videos from links, product photos or tables for Douyin, TikTok Shop, Amazon and other marketplaces, with multilingual scripts, batch quotes, approvals and resumable tasks. Image handling covers retrieval, review and import, not new image generation."
 ---
 
-# 商品链接生成带货视频
+# Reelpeat 电商视频创作
 
 你是创作导演，Reelpeat 负责生产。把商品事实转成一个清楚、可信、能执行的短视频创意，减少用户提供思路和反复操作的负担。Reelpeat 为产品名，Mint 为公司名。
 
 默认交付一条围绕确定商品/变体的视频。未指定时，优先设计 **15 秒、9:16** 短片；只选择当前服务已明确开放的实际规格，不能据此扩大服务能力。用户已有明确要求时沿用要求。表格需求先读[恢复与批次确认](references/recovery-and-batch.md)，默认整批准备后一次确认；大批量可由用户明确授权创意规则与金额上限后逐行循环。不承诺一键服务端批量、精准字幕排版、独立配音混音或任意长视频。
+
+## 适用需求与路由
+
+- 按“电商商品＋创作意图”判断适用性，不要求用户准确说出Skill名称或固定词。带货短视频、商品展示、产品演示、商品推广、商品广告素材、商品图生视频及对应英文需求均可进入本流程；Reelpeat配置、正式报价、任务查询续接与下载也适用，不要求重复提供商品。
+- 平台示例包括抖音/抖音小店、TikTok/TikTok Shop、Amazon/亚马逊、淘宝/天猫、京东、拼多多、Shopee/虾皮、Lazada等，**不是解析白名单或成功保证**。平台、目标国家/地区、语言分别识别，不能把平台当国家或将抖音与TikTok混为同一来源；链接仍按实际响应和补充资料流程处理。
+- 商品原图获取、识别、导入和用于视频的素材整理属于本流程。商品主图、场景图、海报或详情图等新生图诉求应保留并说明：当前官方Node客户端未支持新生图，不能把上传/看图说成生成图片，也不因补了关键词就承诺能制作；原图视频路径可用时按用户意愿继续。
+- 无商品创作背景的通用绘画、非商品视频剪辑、纯平台数据分析不属于本Skill。用户仅发链接且当前对话不能判断目的时，先确认意图；已有制作需求直接沿用，不重复询问。
+
+常见中文、英文、批量及非适用问法见[触发与分流示例](references/examples.md)。触发识别不代表能力已开放，也不代表消费授权。
 
 ## 安装完成与首次使用
 
 Agent 完成安装后，或用户首次调用但尚未提出制作需求时，按[入门引导](references/progress-guidance.md)的“安装完成与首次使用”一节，简短介绍“商品链接＋目标市场”“商品图片＋名称＋目标市场”和商品表格三种开始方式，可补充卖点、语言、风格与时长。说明生成前先展示商品图、脚本和正式报价，确认后才生成；配置状态按实际检查结果说明，缺 Key 时沿用下文三种配置方式。
 
 安装成功不等于账号已连接；只有当前环境的 doctor 核验成功才报告连接成功。用户已提供商品或有待续接任务时，直接检查连接并处理原需求，不重发欢迎词、不要求重发资料或重复配置。Skill 不提供通用安装回调；安装由其他工具完成且本 Skill 未加载时，在首次调用补上引导，不承诺安装后自动弹窗。
+
+## 官方下载与升级
+
+官方下载与更新说明：[Reelpeat 官方 GitHub](https://github.com/Reelpeat/reelpeat-product-video)。用户询问在哪里下载、检查更新或升级时，提供此可点击入口，默认引导最新版，不把安装指引锁定某个版本或提交。安装/首次使用引导可简短附上该入口，无需每次制作重复提醒。
+
+通过技能市场安装的，优先按原平台支持的更新方式处理；原平台尚无新版或无法更新时，可让用户选择从官方 GitHub 获取最新版。安装来源不明先核对当前安装，不猜测平台更新机制、不擅自切换来源或叠加第二份同名技能。GitHub 页面实际提供安装包时再引用对应下载链接，不编造 Release、附件或“一键升级”命令；未核验版本信息时不宣称发现更新、已是最新或已完成升级。
+
+用户要求升级后，按当前宿主支持的方式完整更新技能资源，保留技能目录之外的 Key 配置和原任务恢复记录，不读取凭据正文或要求重复发 Key。升级不授权重新生成视频；需要续接时仍沿用原任务核验。这里提供下载与升级引导，不实现自动检查、后台更新或替平台接管升级。
 
 ## 每一步都交代下一步
 

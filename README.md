@@ -1,4 +1,4 @@
-# Reelpeat 商品带货视频 Skill
+# Reelpeat 电商视频创作 Skill
 
 发商品链接，或商品图片与信息，让 AI 助手设计脚本，Reelpeat 完成视频制作。支持单条创作和表格批次，先看方案与正式报价，确认后再生成。
 
@@ -16,6 +16,8 @@ https://github.com/Reelpeat/reelpeat-product-video
 安装后回复“帮我配置 Key”，助手会引导你登录 [Reelpeat](https://www.reelpeat.com/)、创建个人 Key，并提供 **Agent 代配、临时网页、终端命令**三种配置方式。聊天或工具记录可能保留发送的 Key，也可以选择网页或终端自行填写。已有配置直接沿用。
 
 需要助手支持 Skill、联网、执行 Node.js 和查看图片；最低 Node.js 18.3.0，无需 Python 或 MCP。
+
+下载与更新说明：[Reelpeat 官方 GitHub](https://github.com/Reelpeat/reelpeat-product-video)。通过技能市场安装的优先原平台更新；需要时可选择官方最新版，保留已有 Key 配置和任务记录。
 
 ## 开始制作
 
