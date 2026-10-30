@@ -81,6 +81,23 @@ class SkillPackageTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.package_skill(MODULE.SOURCE, MODULE.SOURCE / "bad.zip", "codex")
 
+    def test_release_rejects_wrong_acquisition_version_or_missing_link_id(self):
+        """中文注释：打包前拦截旧版本或缺少正式推广记录的入口，两种宿主都不能绕过。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            shutil.copytree(MODULE.SOURCE, source)
+            entry = source / "scripts/setup.mjs"
+            original = entry.read_text(encoding="utf-8")
+            for field, value in (("skill_version", "0.0.0"), ("skill_id", "other-skill"), ("acq_id", "")):
+                entry.write_text(re.sub(rf"{field}=[^&']*", f"{field}={value}", original), encoding="utf-8")
+                for host in ("codex", "workbuddy"):
+                    with self.subTest(field=field, host=host):
+                        output = root / f"{field}-{host}.zip"
+                        with self.assertRaisesRegex(ValueError, "推广入口"):
+                            MODULE.package_skill(source, output, host)
+                        self.assertFalse(output.exists())
+
     def test_external_resource_symlink_is_rejected(self):
         """夹带到资料目录的外部文件软链接不能进入公开包。"""
         with tempfile.TemporaryDirectory() as directory:

@@ -13,7 +13,7 @@
 https://github.com/Reelpeat/reelpeat-product-video
 ```
 
-安装后回复“帮我配置 Key”，助手会引导你登录 [Reelpeat](https://www.reelpeat.com/)、创建个人 Key，并提供 **Agent 代配、临时网页、终端命令**三种配置方式。聊天或工具记录可能保留发送的 Key，也可以选择网页或终端自行填写。已有配置直接沿用。
+安装后回复“帮我配置 Key”，助手会引导你[注册／登录 Reelpeat](https://www.reelpeat.com/vorder/login?utm_source=skill&utm_medium=skill&utm_campaign=reelpeat_launch_202610&utm_content=first_setup&skill_id=reelpeat-product-video&skill_version=1.5.1&acq_id=6758f90bad86432697941a01f3af3d3c&redirect=%2Fvorder%2Fapp%3Faccount_action%3Dapi-keys)、创建个人 Key，并提供 **Agent 代配、临时网页、终端命令**三种配置方式。聊天或工具记录可能保留发送的 Key，也可以选择网页或终端自行填写。已有配置直接沿用。
 
 需要助手支持 Skill、联网、执行 Node.js 和查看图片；最低 Node.js 18.3.0，无需 Python 或 MCP。
 

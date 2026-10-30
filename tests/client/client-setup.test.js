@@ -36,9 +36,12 @@ test('首次接入保留推广参数及固定Key回跳，不为其他环境或�
   assert.equal(url.origin, 'https://www.reelpeat.com');
   assert.equal(url.pathname, '/vorder/login');
   assert.match(url.searchParams.get('acq_id'), /^[a-f0-9]{32}$/);
+  // 中文注释：来源版本必须对应当前安装包，防止沿用旧推广入口导致版本统计失真。
+  const skillText = await readFile(path.join(path.dirname(path.dirname(entry)), 'SKILL.md'), 'utf8');
+  const version = skillText.match(/^  version: "([^"]+)"$/m)[1];
   for (const [key, value] of Object.entries({ utm_source: 'skill', utm_medium: 'skill',
     utm_campaign: 'reelpeat_launch_202610', utm_content: 'first_setup',
-    skill_id: 'reelpeat-product-video', skill_version: '1.1.1',
+    skill_id: 'reelpeat-product-video', skill_version: version,
     redirect: '/vorder/app?account_action=api-keys' })) assert.equal(url.searchParams.get(key), value);
   const missing = await cli(['doctor', '--config', path.join(f.root, 'missing.json')]);
   assert.equal(missing.value.error.code, 'SETUP_REQUIRED');

@@ -8,7 +8,7 @@ import { configLocation, normalizeBase, configuredBase, normalizeKey, verifyIden
 import { DEFAULT_API_BASE } from './api-client.mjs';
 
 // 中文注释：仅维护公开获客入口；来源参数不含账号或凭据，登录后只回到本站个人Key管理。
-const ACCOUNT_URL = DEFAULT_API_BASE + 'vorder/login?utm_source=skill&utm_medium=skill&utm_campaign=reelpeat_launch_202610&utm_content=first_setup&skill_id=reelpeat-product-video&skill_version=1.1.1&acq_id=b8317cf3a84243f090d727a650dce7ca&redirect=%2Fvorder%2Fapp%3Faccount_action%3Dapi-keys';
+const ACCOUNT_URL = DEFAULT_API_BASE + 'vorder/login?utm_source=skill&utm_medium=skill&utm_campaign=reelpeat_launch_202610&utm_content=first_setup&skill_id=reelpeat-product-video&skill_version=1.5.1&acq_id=6758f90bad86432697941a01f3af3d3c&redirect=%2Fvorder%2Fapp%3Faccount_action%3Dapi-keys';
 
 export function accountEntry(apiBase) {
   // 中文注释：显式使用其他API环境时不展示本环境账户入口，避免配置错账号体系。

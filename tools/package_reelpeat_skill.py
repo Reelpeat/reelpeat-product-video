@@ -4,6 +4,7 @@
 import argparse
 import re
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import yaml
@@ -35,6 +36,7 @@ def package_skill(source: Path, output: Path, target: str) -> Path:
         raise ValueError("Skill YAML 结构无效")
     front = yaml.safe_load(match[1])
     name = front["name"]
+    version = front["metadata"]["version"]
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
         raise ValueError("技能名称不能作为安全包路径")
     if target == "workbuddy":
@@ -53,12 +55,26 @@ def package_skill(source: Path, output: Path, target: str) -> Path:
     # 中文注释：拒绝资源软链接，避免将包外文件或本地凭据带入公开 ZIP。
     for path in resources:
         _validate_resource(path, source)
+    # 中文注释：本地拦截版本漂移；后台记录存在性须由维护者在发布前核验，打包不访问网络。
+    _validate_acquisition_entry(source, name, version)
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:
         _write_stable_entry(archive, f"{name}/SKILL.md", text.encode("utf-8"))
         for path in resources:
             _write_stable_entry(archive, f"{name}/{path.relative_to(source).as_posix()}", path.read_bytes())
     return output
+
+
+def _validate_acquisition_entry(source: Path, name: str, version: str) -> None:
+    """中文注释：包内推广标识须匹配安装包版本，不能靠改版本号继续复用旧入口。"""
+    text = (source / "scripts/setup.mjs").read_text(encoding="utf-8")
+    match = re.search(r"^const ACCOUNT_URL = DEFAULT_API_BASE \+ '([^'\n]+)';$", text, re.M)
+    params = parse_qs(urlsplit(match[1]).query) if match else {}
+    if params.get("skill_id") != [name] or params.get("skill_version") != [version]:
+        raise ValueError("推广入口的 Skill 标识和版本必须与 SKILL.md 一致")
+    ids = params.get("acq_id", [])
+    if len(ids) != 1 or not re.fullmatch(r"[a-f0-9]{32}", ids[0]):
+        raise ValueError("推广入口必须使用后台生成的 acq_id")
 
 
 def _validate_resource(path: Path, source: Path) -> None:

@@ -8,12 +8,25 @@ import unittest
 from pathlib import Path
 
 import yaml
+from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class PublicLayoutTest(unittest.TestCase):
     """中文注释：准备目录与GitHub中运行同一套断言，不依赖原业务仓库。"""
+
+    def test_readme_registration_uses_the_packaged_account_entry(self):
+        """中文注释：README直接注册与Agent引导必须是同版入口，不能回退到无来源官网。"""
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        entry = (ROOT / "scripts/setup.mjs").read_text(encoding="utf-8")
+        account = re.search(r"const ACCOUNT_URL = DEFAULT_API_BASE \+ '([^']+)'", entry)[1]
+        link = re.search(r"\[注册／登录 Reelpeat\]\(([^)]+)\)", text)
+        self.assertIsNotNone(link)
+        self.assertEqual(link[1], "https://www.reelpeat.com/" + account)
+        params = parse_qs(urlsplit(link[1]).query)
+        self.assertEqual(params["skill_id"], ["reelpeat-product-video"])
+        self.assertEqual(params["redirect"], ["/vorder/app?account_action=api-keys"])
 
     def test_readme_links_and_release_boundaries(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
